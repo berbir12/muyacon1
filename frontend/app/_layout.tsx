@@ -234,7 +234,10 @@ function AppContent() {
     // Show a simple loading indicator while splash screen is visible
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#ffffff' }}>
-        <Text style={{ fontSize: 16, color: '#666', marginTop: 20 }}>Loading...</Text>
+        <Text style={{ fontSize: 18, color: '#333', marginBottom: 10 }}>Loading App...</Text>
+        <Text style={{ fontSize: 14, color: '#666', textAlign: 'center', paddingHorizontal: 20 }}>
+          Please wait while we initialize the application
+        </Text>
       </View>
     );
   }

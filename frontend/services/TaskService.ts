@@ -89,7 +89,6 @@ export class TaskService {
   // Get all available tasks (open status, not assigned to current user)
   static async getAvailableTasks(userId: string): Promise<Task[]> {
     try {
-      console.log('TaskService: Getting available tasks for user:', userId)
       
       // First get the profile ID for this user to exclude their own tasks
       const { data: userProfile } = await supabase
@@ -98,10 +97,8 @@ export class TaskService {
         .eq('user_id', userId)
         .single()
 
-      console.log('TaskService: User profile ID:', userProfile?.id)
 
       if (!userProfile) {
-        console.log('No profile found for user:', userId)
         // If no profile, just get all open tasks
         const { data, error } = await supabase
           .from('tasks')
@@ -130,7 +127,6 @@ export class TaskService {
         .neq('customer_id', userProfile.id) // Use profile ID to exclude user's own tasks
         .order('created_at', { ascending: false })
 
-      console.log('TaskService: Query result - data:', data?.length || 0, 'error:', error)
 
       if (error) {
         console.error('TaskService: Database error:', error)
@@ -148,7 +144,6 @@ export class TaskService {
         applications_count: 0
       }))
 
-      console.log('TaskService: Mapped tasks:', mappedTasks.length)
       return mappedTasks
     } catch (error) {
       const appError = handleError(error, 'getAvailableTasks')
@@ -167,10 +162,8 @@ export class TaskService {
         .eq('user_id', userId)
         .single()
 
-      console.log('TaskService: getMyTasks - User profile ID:', profile?.id)
 
       if (!profile) {
-        console.log('No profile found for user:', userId)
         return []
       }
 
@@ -452,19 +445,14 @@ export class TaskService {
   // Get a single task by ID with all details
   static async getTaskById(taskId: string): Promise<Task | null> {
     try {
-      console.log('TaskService: Getting task by ID:', taskId)
-      
-      const { data, error } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('id', taskId)
-        .single()
-
-      console.log('TaskService: Database query result - data:', data, 'error:', error)
+        const { data, error } = await supabase
+          .from('tasks')
+          .select('*')
+          .eq('id', taskId)
+          .single()
 
       if (error) throw error
       if (!data) {
-        console.log('TaskService: No task found with ID:', taskId)
         return null
       }
 

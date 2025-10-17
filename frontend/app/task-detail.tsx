@@ -61,14 +61,11 @@ export default function TaskDetail() {
   const loadTaskDetails = async () => {
     if (!taskId || !user) return
 
-    console.log('TaskDetail: Loading task details for taskId:', taskId)
-    console.log('TaskDetail: User:', user?.id)
     
     setLoading(true)
     try {
       // Get task details
       const taskDetails = await TaskService.getTaskById(taskId as string)
-      console.log('TaskDetail: Task details received:', taskDetails)
       setTask(taskDetails)
 
       // Check if user has already applied (only for taskers)

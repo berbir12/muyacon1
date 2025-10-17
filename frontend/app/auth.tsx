@@ -98,12 +98,17 @@ export default function Auth() {
 
     setLoading(true)
     try {
-      await sendVerificationCode(formattedPhone, isSignUp, fullName, username)
-      Alert.alert('Code Sent', 'Verification code has been sent to your phone number via SMS')
-      setIsCodeSent(true)
-      startCountdown()
-    } catch {
-      Alert.alert('Error', 'Failed to send verification code. Please check your phone number and try again.')
+      const result = await sendVerificationCode(formattedPhone, isSignUp, fullName, username)
+      
+      if (result.success) {
+        Alert.alert('Success', result.message)
+        setIsCodeSent(true)
+        startCountdown()
+      } else {
+        Alert.alert('Error', result.message)
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to send verification code. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -118,17 +123,23 @@ export default function Auth() {
     setLoading(true)
     try {
       const formattedPhone = cleanPhoneNumber(phoneNumber)
-      await verifyPhoneCode(formattedPhone, verificationCode)
+      const result = await verifyPhoneCode(formattedPhone, verificationCode)
       
-      // Reset form state
-      setVerificationCode('')
-      setIsCodeSent(false)
-      setPhoneNumber('')
-      setFullName('')
-      setUsername('')
-      // Navigation will be handled by the layout redirect
-    } catch {
-      Alert.alert('Error', 'Invalid verification code')
+      if (result.success) {
+        Alert.alert('Success', result.message)
+        
+        // Reset form state
+        setVerificationCode('')
+        setIsCodeSent(false)
+        setPhoneNumber('')
+        setFullName('')
+        setUsername('')
+        // Navigation will be handled by the layout redirect
+      } else {
+        Alert.alert('Error', result.message)
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Verification failed. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -139,13 +150,18 @@ export default function Auth() {
       setLoading(true)
       try {
         const formattedPhone = cleanPhoneNumber(phoneNumber)
-        await sendVerificationCode(formattedPhone)
-        setVerificationCode('')
-        setIsCodeSent(false)
-        Alert.alert('Info', 'New verification code sent')
-        startCountdown()
-      } catch {
-        Alert.alert('Error', 'Failed to resend verification code')
+        const result = await sendVerificationCode(formattedPhone, isSignUp, fullName, username)
+        
+        if (result.success) {
+          setVerificationCode('')
+          setIsCodeSent(false)
+          Alert.alert('Success', 'New verification code sent')
+          startCountdown()
+        } else {
+          Alert.alert('Error', result.message)
+        }
+      } catch (error: any) {
+        Alert.alert('Error', error.message || 'Failed to resend verification code')
       } finally {
         setLoading(false)
       }
