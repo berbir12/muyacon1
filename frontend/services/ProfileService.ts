@@ -1,45 +1,9 @@
 import { supabase } from '../lib/supabase'
-import { SimpleSMSService } from './SimpleSMSService'
+import { SimpleUserProfile } from '../types/SimpleUserProfile'
+import { handleError, formatPhoneNumber, isValidPhoneNumber } from '../utils/errorHandler'
 
-export interface Profile {
-  id: string
-  email?: string
-  full_name: string
-  username: string
-  avatar_url?: string
-  phone: string
-  bio?: string
-  skills?: string[]
-  available: boolean
-  verification_status: 'pending' | 'verified' | 'rejected'
-  address?: string
-  city?: string
-  state?: string
-  zip_code?: string
-  latitude?: number
-  longitude?: number
-  total_tasks_completed: number
-  created_at: string
-  updated_at: string
-  role: 'customer' | 'tasker' | 'both'
-  rating_average: number
-  rating_count: number
-  completed_tasks: number
-  last_active: string
-  portfolio_images?: string[]
-  experience_years: number
-  certifications?: string[]
-  languages?: string[]
-  response_time: string
-  location?: string
-  average_rating: number
-  total_reviews: number
-  hourly_rate?: number
-  is_admin: boolean
-  phone_verified: boolean
-  phone_verification_code?: string
-  phone_verification_expires_at?: string
-}
+// Alias for backward compatibility
+export type Profile = SimpleUserProfile;
 
 export class ProfileService {
   // Get user profile by ID
@@ -97,33 +61,51 @@ export class ProfileService {
     }
   }
 
-  // Verify phone number using Simple SMS
+  // Verify phone number using Supabase OTP
   static async verifyPhoneNumber(phone: string, code: string): Promise<{ success: boolean, user?: any, error?: string }> {
     try {
       // Format phone number to E.164 format
-      const formattedPhone = SimpleSMSService.formatPhoneNumber(phone)
+      const formattedPhone = formatPhoneNumber(phone)
       
-      // Verify code using Simple SMS service
-      return await SimpleSMSService.verifyCode(formattedPhone, code)
+      // Verify OTP with Supabase
+      const { data, error } = await supabase.auth.verifyOtp({
+        phone: formattedPhone,
+        token: code,
+        type: 'sms'
+      })
+      
+      if (error) {
+        return { success: false, error: error.message }
+      }
+      
+      return { success: true, user: data.user }
     } catch (error) {
       console.error('Error verifying phone number:', error)
       return { success: false, error: 'Failed to verify phone number' }
     }
   }
 
-  // Send phone verification code using Simple SMS
+  // Send phone verification code using Supabase OTP
   static async sendPhoneVerificationCode(phone: string): Promise<{ success: boolean, error?: string }> {
     try {
       // Format phone number to E.164 format
-      const formattedPhone = SimpleSMSService.formatPhoneNumber(phone)
+      const formattedPhone = formatPhoneNumber(phone)
       
       // Validate phone number
-      if (!SimpleSMSService.isValidPhoneNumber(formattedPhone)) {
+      if (!isValidPhoneNumber(formattedPhone)) {
         return { success: false, error: 'Invalid phone number format' }
       }
 
-      // Send SMS via Simple SMS service
-      return await SimpleSMSService.sendVerificationCode(formattedPhone)
+      // Simple approach - just send OTP without metadata to avoid trigger issues
+      const { error } = await supabase.auth.signInWithOtp({
+        phone: formattedPhone
+      })
+      
+      if (error) {
+        return { success: false, error: error.message }
+      }
+      
+      return { success: true }
     } catch (error) {
       console.error('Error sending verification code:', error)
       return { success: false, error: 'Failed to send verification code' }
@@ -160,6 +142,7 @@ export class ProfileService {
       
       const profileData = {
         id: userId,
+        user_id: userId,  // ADD THIS LINE
         phone,
         full_name: fullName,
         username: generatedUsername,
@@ -190,23 +173,20 @@ export class ProfileService {
         // Return a temporary profile for now
         return {
           id: userId,
+          user_id: userId,
           phone,
           full_name: fullName,
           username: generatedUsername,
           role: 'customer',
-          available: true,
-          verification_status: 'verified',
-          phone_verified: true,
-          total_tasks_completed: 0,
-          rating_average: 0,
-          rating_count: 0,
-          completed_tasks: 0,
-          experience_years: 0,
-          average_rating: 0,
-          total_reviews: 0,
-          is_admin: false,
+          current_mode: 'customer',
           created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
+          name: fullName, // alias for compatibility
+          profile: {
+            full_name: fullName,
+            username: generatedUsername,
+            phone: phone,
+          }
         } as Profile
       }
       return data
@@ -215,23 +195,20 @@ export class ProfileService {
       // Return a temporary profile as fallback
       return {
         id: userId,
+        user_id: userId,
         phone,
         full_name: fullName,
         username: username || `user_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
         role: 'customer',
-        available: true,
-        verification_status: 'verified',
-        phone_verified: true,
-        total_tasks_completed: 0,
-        rating_average: 0,
-        rating_count: 0,
-        completed_tasks: 0,
-        experience_years: 0,
-        average_rating: 0,
-        total_reviews: 0,
-        is_admin: false,
+        current_mode: 'customer',
         created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
+        name: fullName, // alias for compatibility
+        profile: {
+          full_name: fullName,
+          username: username || `user_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+          phone: phone,
+        }
       } as Profile
     }
   }
@@ -298,46 +275,4 @@ export class ProfileService {
     }
   }
 
-  // Send phone verification code
-  static async sendPhoneVerificationCode(phone: string): Promise<{ success: boolean, error?: string }> {
-    try {
-      return await SimpleSMSService.sendVerificationCode(phone)
-    } catch (error) {
-      console.error('Error sending phone verification code:', error)
-      return { success: false, error: 'Failed to send verification code' }
-    }
-  }
-
-  // Verify phone number
-  static async verifyPhoneNumber(phone: string, code: string): Promise<{ success: boolean, error?: string }> {
-    try {
-      return await SimpleSMSService.verifyCode(phone, code)
-    } catch (error) {
-      console.error('Error verifying phone number:', error)
-      return { success: false, error: 'Failed to verify phone number' }
-    }
-  }
-
-  // Get user by phone number
-  static async getUserByPhone(phone: string): Promise<Profile | null> {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('phone', phone)
-        .single()
-
-      if (error) {
-        if (error.code === 'PGRST116') {
-          return null // No profile found
-        }
-        throw error
-      }
-
-      return data
-    } catch (error) {
-      console.error('Error getting user by phone:', error)
-      return null
-    }
-  }
 }

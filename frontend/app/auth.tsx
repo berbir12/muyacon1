@@ -15,10 +15,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/SimpleAuthContext'
 import Colors from '../constants/Colors'
 
-const { width } = Dimensions.get('window')
 
 export default function Auth() {
   const router = useRouter()
@@ -30,7 +29,6 @@ export default function Auth() {
   const [isCodeSent, setIsCodeSent] = useState(false)
   const [loading, setLoading] = useState(false)
   const [countdown, setCountdown] = useState(0)
-  const [devCode, setDevCode] = useState('')
   const { sendVerificationCode, verifyPhoneCode, isAuthenticated } = useAuth()
 
   // Redirect away if already authenticated
@@ -43,14 +41,10 @@ export default function Auth() {
   // Reset auth state when user logs out
   React.useEffect(() => {
     if (!isAuthenticated) {
-      setFullName('')
-      setUsername('')
-      setPhoneNumber('')
       setVerificationCode('')
       setIsCodeSent(false)
       setLoading(false)
       setCountdown(0)
-      setDevCode('')
     }
   }, [isAuthenticated])
 
@@ -104,37 +98,11 @@ export default function Auth() {
 
     setLoading(true)
     try {
-      const result = await sendVerificationCode(
-        formattedPhone, 
-        isSignUp ? fullName : '', 
-        isSignUp ? username : ''
-      )
-      if (result.success) {
-        // In development, show the code
-        if (result.code) {
-          setDevCode(result.code)
-          Alert.alert(
-            'Code Sent (Development)', 
-            `Verification code: ${result.code}\n\nIn production, this would be sent via SMS to ${phoneNumber}`,
-            [
-              {
-                text: 'OK',
-                onPress: () => {
-                  setIsCodeSent(true)
-                  startCountdown()
-                }
-              }
-            ]
-          )
-        } else {
-          Alert.alert('Code Sent', 'Verification code has been sent to your phone number')
-          setIsCodeSent(true)
-          startCountdown()
-        }
-      } else {
-        Alert.alert('Error', result.error || 'Failed to send verification code. Please check your phone number and try again.')
-      }
-    } catch (error) {
+      await sendVerificationCode(formattedPhone, isSignUp, fullName, username)
+      Alert.alert('Code Sent', 'Verification code has been sent to your phone number via SMS')
+      setIsCodeSent(true)
+      startCountdown()
+    } catch {
       Alert.alert('Error', 'Failed to send verification code. Please check your phone number and try again.')
     } finally {
       setLoading(false)
@@ -150,21 +118,16 @@ export default function Auth() {
     setLoading(true)
     try {
       const formattedPhone = cleanPhoneNumber(phoneNumber)
-      const isValid = await verifyPhoneCode(formattedPhone, verificationCode)
+      await verifyPhoneCode(formattedPhone, verificationCode)
       
-      if (isValid) {
-        // Reset form state
-        setVerificationCode('')
-        setIsCodeSent(false)
-        setPhoneNumber('')
-        setFullName('')
-        setUsername('')
-        setDevCode('')
-        // Navigation will be handled by the layout redirect
-      } else {
-        Alert.alert('Error', 'Invalid verification code')
-      }
-    } catch (error) {
+      // Reset form state
+      setVerificationCode('')
+      setIsCodeSent(false)
+      setPhoneNumber('')
+      setFullName('')
+      setUsername('')
+      // Navigation will be handled by the layout redirect
+    } catch {
       Alert.alert('Error', 'Invalid verification code')
     } finally {
       setLoading(false)
@@ -176,25 +139,12 @@ export default function Auth() {
       setLoading(true)
       try {
         const formattedPhone = cleanPhoneNumber(phoneNumber)
-        const result = await sendVerificationCode(
-          formattedPhone, 
-          isSignUp ? fullName : '', 
-          isSignUp ? username : ''
-        )
-        if (result.success) {
-          setVerificationCode('')
-          setIsCodeSent(false)
-          if (result.code) {
-            setDevCode(result.code)
-            Alert.alert('New Code Sent (Development)', `New verification code: ${result.code}`)
-          } else {
-            Alert.alert('Info', 'New verification code sent')
-          }
-          startCountdown()
-        } else {
-          Alert.alert('Error', result.error || 'Failed to resend verification code')
-        }
-      } catch (error) {
+        await sendVerificationCode(formattedPhone)
+        setVerificationCode('')
+        setIsCodeSent(false)
+        Alert.alert('Info', 'New verification code sent')
+        startCountdown()
+      } catch {
         Alert.alert('Error', 'Failed to resend verification code')
       } finally {
         setLoading(false)
@@ -250,13 +200,6 @@ export default function Auth() {
                 </View>
               )}
 
-              {/* Development Code Display */}
-              {__DEV__ && devCode && (
-                <View style={styles.devCodeContainer}>
-                  <Text style={styles.devCodeLabel}>Development Code:</Text>
-                  <Text style={styles.devCode}>{devCode}</Text>
-                </View>
-              )}
 
               {/* Form */}
               <View style={styles.form}>
@@ -302,6 +245,9 @@ export default function Auth() {
                         keyboardType="phone-pad"
                         returnKeyType="done"
                         onSubmitEditing={Keyboard.dismiss}
+                        editable={true}
+                        selectTextOnFocus={true}
+                        autoFocus={!isSignUp}
                       />
                     </View>
                     
@@ -328,7 +274,6 @@ export default function Auth() {
                       onPress={() => {
                         setIsCodeSent(false)
                         setVerificationCode('')
-                        setDevCode('')
                       }}
                     >
                       <Ionicons name="arrow-back" size={20} color={Colors.primary[500]} />

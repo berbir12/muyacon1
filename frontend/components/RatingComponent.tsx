@@ -12,7 +12,7 @@ import {
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { RatingService, Review } from '../services/RatingService'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/SimpleAuthContext'
 import { useToast } from '../contexts/ToastContext'
 import { Colors } from '../constants/Colors'
 

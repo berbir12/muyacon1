@@ -9,20 +9,17 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
-  Image,
-  Dimensions,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/SimpleAuthContext'
 import { ProfileService } from '../services/ProfileService'
 import ImageUpload from '../components/ImageUpload'
 import Colors from '../constants/Colors'
 
-const { width } = Dimensions.get('window')
 
 export default function EditProfile() {
-  const { user, login } = useAuth()
+  const { user } = useAuth()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -200,12 +197,16 @@ export default function EditProfile() {
         {/* Profile Photo */}
         <View style={styles.photoSection}>
           <ImageUpload
-            onImageSelected={(uri) => {
-              // Handle image selection
-              console.log('Selected image:', uri)
-              // In a real app, you would upload this to Supabase Storage
+            onImageUploaded={(url: string) => {
+              // Handle image upload
+              console.log('Uploaded image:', url)
+              // In a real app, you would save this URL to the profile
             }}
-            currentImage={user?.profile?.avatar_url}
+            onImageRemoved={() => {
+              // Handle image removal
+              console.log('Image removed')
+            }}
+            currentImage={user?.profile?.avatar_url || undefined}
             placeholder="Add Profile Photo"
           />
         </View>

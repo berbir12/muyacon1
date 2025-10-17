@@ -47,11 +47,10 @@ export class ChatService {
           id,
           title,
           customer_id,
-          tasker_id,
           created_at,
           updated_at
         `)
-        .or(`customer_id.eq.${userId},tasker_id.eq.${userId}`)
+        .eq('customer_id', userId)
 
       console.log('ChatService: Found tasks:', tasks?.length || 0, 'error:', tasksError)
 
@@ -70,16 +69,8 @@ export class ChatService {
           .eq('id', task.customer_id)
           .single()
 
-        // Get tasker name only if tasker_id exists
+        // For now, set tasker as null since tasker_id column doesn't exist yet
         let taskerName = null
-        if (task.tasker_id) {
-          const { data: taskerData } = await supabase
-            .from('profiles')
-            .select('full_name')
-            .eq('id', task.tasker_id)
-            .single()
-          taskerName = taskerData?.full_name
-        }
 
         // Get latest message for this task
         const { data: latestMessage } = await supabase
@@ -97,13 +88,13 @@ export class ChatService {
           id: task.id,
           task_id: task.id,
           customer_id: task.customer_id,
-          tasker_id: task.tasker_id,
+          tasker_id: null, // Will be set when tasker is assigned
           created_at: task.created_at || new Date().toISOString(),
           updated_at: latestMessage?.created_at || task.updated_at || new Date().toISOString(),
           task_title: task.title,
           customer_name: customerData?.full_name,
           tasker_name: taskerName,
-          last_message: latestMessage?.message || (task.tasker_id ? 'Task assigned, start conversation' : 'Task posted, waiting for applications'),
+          last_message: latestMessage?.message || 'Task posted, waiting for applications',
           last_message_time: latestMessage?.created_at || task.updated_at || new Date().toISOString(),
           unread_count: unreadCount
         })
@@ -130,7 +121,6 @@ export class ChatService {
           id,
           title,
           customer_id,
-          tasker_id,
           created_at,
           updated_at
         `)
@@ -171,7 +161,7 @@ export class ChatService {
       // Get task details to find the other participant
       const { data: task } = await supabase
         .from('tasks')
-        .select('customer_id, tasker_id')
+        .select('customer_id')
         .eq('id', taskId)
         .single()
 
@@ -179,15 +169,15 @@ export class ChatService {
         throw new Error('Task not found')
       }
 
-      // Determine recipient (the other participant)
-      const recipientId = task.customer_id === senderId ? task.tasker_id : task.customer_id
+      // For now, only customer can send messages (no tasker assigned yet)
+      const recipientId = task.customer_id === senderId ? null : task.customer_id
       
       if (!recipientId) {
         throw new Error('No recipient found for this task')
       }
 
       // Get or create chat
-      const chat = await this.getOrCreateChat(taskId, task.customer_id, task.tasker_id)
+      const chat = await this.getOrCreateChat(taskId, task.customer_id, null)
       if (!chat) {
         throw new Error('Failed to create chat')
       }
@@ -315,14 +305,14 @@ export class ChatService {
       // Get task details to find the other participant
       const { data: task } = await supabase
         .from('tasks')
-        .select('customer_id, tasker_id, title')
+        .select('customer_id, title')
         .eq('id', taskId)
         .single()
 
       if (!task) return
 
-      // Determine recipient (the other participant)
-      const recipientId = task.customer_id === senderId ? task.tasker_id : task.customer_id
+      // For now, only customer can send messages (no tasker assigned yet)
+      const recipientId = task.customer_id === senderId ? null : task.customer_id
       
       if (!recipientId) return
 
@@ -346,7 +336,6 @@ export class ChatService {
           id,
           title,
           customer_id,
-          tasker_id,
           created_at,
           updated_at
         `)
@@ -355,25 +344,21 @@ export class ChatService {
 
       if (taskError) throw taskError
 
-      // Get customer and tasker names
-      const [customerResult, taskerResult] = await Promise.all([
-        supabase.from('profiles').select('full_name').eq('id', task.customer_id).single(),
-        supabase.from('profiles').select('full_name').eq('id', task.tasker_id).single()
-      ])
+      // Get customer name
+      const customerResult = await supabase.from('profiles').select('full_name').eq('id', task.customer_id).single()
 
       console.log('Customer result:', customerResult)
-      console.log('Tasker result:', taskerResult)
 
       return {
         id: task.id,
         task_id: task.id,
         customer_id: task.customer_id,
-        tasker_id: task.tasker_id,
+        tasker_id: null, // Will be set when tasker is assigned
         created_at: task.created_at || new Date().toISOString(),
         updated_at: task.updated_at || new Date().toISOString(),
         task_title: task.title,
         customer_name: customerResult.data?.full_name,
-        tasker_name: taskerResult.data?.full_name,
+        tasker_name: null, // Will be set when tasker is assigned
         last_message: '',
         last_message_time: task.updated_at || new Date().toISOString(),
         unread_count: 0
@@ -438,7 +423,7 @@ export class ChatService {
           // Get task details to find the other participant
           const { data: task } = await supabase
             .from('tasks')
-            .select('customer_id, tasker_id, title')
+            .select('customer_id, title')
             .eq('id', taskId)
             .single()
 

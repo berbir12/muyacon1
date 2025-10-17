@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase'
 import { SimpleNotificationService } from './SimpleNotificationService'
+import { ProfileVerificationService, VerificationDocument, SkillVerification } from './ProfileVerificationService'
 
 export interface TaskerApplication {
   id: string
@@ -30,9 +31,25 @@ export interface TaskerApplication {
 }
 
 export class TaskerApplicationService {
-  // Create a new tasker application
+  // Create a new tasker application with verification integration
   static async createApplication(applicationData: Omit<TaskerApplication, 'id' | 'created_at' | 'updated_at' | 'user_name'>): Promise<TaskerApplication | null> {
     try {
+      // Check if user already has a pending or approved application
+      const existingApplication = await this.getApplicationByUserId(applicationData.user_id)
+      if (existingApplication && existingApplication.status !== 'rejected') {
+        throw new Error('User already has a pending or approved tasker application')
+      }
+
+      // Check verification requirements before allowing application
+      const verificationCheck = await ProfileVerificationService.checkVerificationRequirements(
+        applicationData.user_id, 
+        'tasker'
+      )
+
+      if (!verificationCheck.meets) {
+        throw new Error(`Verification requirements not met: ${verificationCheck.missing.join(', ')}`)
+      }
+
       const { data, error } = await supabase
         .from('tasker_applications')
         .insert([applicationData])
@@ -49,6 +66,47 @@ export class TaskerApplicationService {
           updated_at: new Date().toISOString()
         })
         .eq('id', applicationData.user_id)
+
+      // Create verification documents for ID verification
+      if (applicationData.id_front_url) {
+        await ProfileVerificationService.uploadVerificationDocument(
+          applicationData.user_id,
+          'id_card',
+          'ID Card Front',
+          applicationData.id_front_url
+        )
+      }
+
+      if (applicationData.id_back_url) {
+        await ProfileVerificationService.uploadVerificationDocument(
+          applicationData.user_id,
+          'id_card',
+          'ID Card Back',
+          applicationData.id_back_url
+        )
+      }
+
+      // Create skill verifications for each skill
+      for (const skill of applicationData.skills) {
+        await ProfileVerificationService.addSkillVerification(
+          applicationData.user_id,
+          skill,
+          'General', // Default category
+          'intermediate', // Default proficiency level
+          'self_claimed', // Initial verification method
+          undefined // No document initially
+        )
+      }
+
+      // Create verification documents for certifications
+      for (const certification of applicationData.certifications) {
+        await ProfileVerificationService.uploadVerificationDocument(
+          applicationData.user_id,
+          'certificate',
+          certification,
+          '' // Placeholder - would need actual file URL
+        )
+      }
 
       return {
         ...data,
@@ -93,7 +151,7 @@ export class TaskerApplicationService {
     }
   }
 
-  // Update application status
+  // Update application status with verification integration
   static async updateApplicationStatus(applicationId: string, status: TaskerApplication['status']): Promise<boolean> {
     try {
       const { error } = await supabase
@@ -109,7 +167,7 @@ export class TaskerApplicationService {
       // Get application details for notification
       const { data: application } = await supabase
         .from('tasker_applications')
-        .select('user_id, full_name')
+        .select('user_id, full_name, skills')
         .eq('id', applicationId)
         .single()
 
@@ -124,10 +182,46 @@ export class TaskerApplicationService {
           })
           .eq('id', application.user_id)
 
-        // Send notification
+        // Handle verification status based on application status
         if (status === 'approved') {
+          // Approve all verification documents for this user
+          const documents = await ProfileVerificationService.getUserVerificationDocuments(application.user_id)
+          for (const doc of documents) {
+            if (doc.status === 'pending') {
+              await ProfileVerificationService.approveVerificationDocument(doc.id, 'system')
+            }
+          }
+
+          // Approve all skill verifications for this user
+          const skills = await ProfileVerificationService.getUserSkillVerifications(application.user_id)
+          for (const skill of skills) {
+            if (skill.status === 'pending') {
+              await ProfileVerificationService.approveSkillVerification(skill.id, 'system')
+            }
+          }
+
+          // Update verification status to reflect approval
+          await ProfileVerificationService.updateVerificationStatus(application.user_id, {
+            identity_verified: true,
+            skills_verified: true,
+            overall_verification_score: 90, // High score for approved taskers
+            verification_badge: 'verified'
+          })
+
           await SimpleNotificationService.notifyTaskerApproved(application.user_id, application.full_name)
         } else if (status === 'rejected') {
+          // Reject all pending verification documents
+          const documents = await ProfileVerificationService.getUserVerificationDocuments(application.user_id)
+          for (const doc of documents) {
+            if (doc.status === 'pending') {
+              await ProfileVerificationService.rejectVerificationDocument(
+                doc.id, 
+                'system', 
+                'Tasker application was rejected'
+              )
+            }
+          }
+
           await SimpleNotificationService.notifyTaskerRejected(application.user_id, application.full_name)
         }
       }
@@ -194,6 +288,171 @@ export class TaskerApplicationService {
       return true
     } catch (error) {
       console.error('Error deleting application:', error)
+      return false
+    }
+  }
+
+  // Get application with verification status
+  static async getApplicationWithVerificationStatus(applicationId: string): Promise<{
+    application: TaskerApplication | null
+    verificationStatus: any
+    verificationDocuments: VerificationDocument[]
+    skillVerifications: SkillVerification[]
+  }> {
+    try {
+      // Get application
+      const { data: application, error: appError } = await supabase
+        .from('tasker_applications')
+        .select('*')
+        .eq('id', applicationId)
+        .single()
+
+      if (appError) throw appError
+
+      if (!application) {
+        return {
+          application: null,
+          verificationStatus: null,
+          verificationDocuments: [],
+          skillVerifications: []
+        }
+      }
+
+      // Get verification status
+      const verificationStatus = await ProfileVerificationService.getVerificationStatus(application.user_id)
+      
+      // Get verification documents
+      const verificationDocuments = await ProfileVerificationService.getUserVerificationDocuments(application.user_id)
+      
+      // Get skill verifications
+      const skillVerifications = await ProfileVerificationService.getUserSkillVerifications(application.user_id)
+
+      return {
+        application,
+        verificationStatus,
+        verificationDocuments,
+        skillVerifications
+      }
+    } catch (error) {
+      console.error('Error getting application with verification status:', error)
+      return {
+        application: null,
+        verificationStatus: null,
+        verificationDocuments: [],
+        skillVerifications: []
+      }
+    }
+  }
+
+  // Check if user can apply to become tasker
+  static async canUserApplyToBeTasker(userId: string): Promise<{
+    canApply: boolean
+    reasons: string[]
+    verificationStatus: any
+  }> {
+    try {
+      // Check if user already has an application
+      const existingApplication = await this.getApplicationByUserId(userId)
+      if (existingApplication && existingApplication.status !== 'rejected') {
+        return {
+          canApply: false,
+          reasons: ['User already has a pending or approved tasker application'],
+          verificationStatus: null
+        }
+      }
+
+      // Check verification requirements
+      const verificationCheck = await ProfileVerificationService.checkVerificationRequirements(userId, 'tasker')
+      const verificationStatus = await ProfileVerificationService.getVerificationStatus(userId)
+
+      return {
+        canApply: verificationCheck.meets,
+        reasons: verificationCheck.missing,
+        verificationStatus
+      }
+    } catch (error) {
+      console.error('Error checking if user can apply:', error)
+      return {
+        canApply: false,
+        reasons: ['Error checking application eligibility'],
+        verificationStatus: null
+      }
+    }
+  }
+
+  // Get application requirements for user
+  static async getApplicationRequirements(userId: string): Promise<{
+    basicRequirements: string[]
+    verificationRequirements: string[]
+    missingRequirements: string[]
+    currentVerificationScore: number
+  }> {
+    try {
+      const verificationCheck = await ProfileVerificationService.checkVerificationRequirements(userId, 'tasker')
+      const verificationStatus = await ProfileVerificationService.getVerificationStatus(userId)
+
+      const basicRequirements = [
+        'Valid phone number',
+        'Complete profile information',
+        'At least 18 years old',
+        'Emergency contact information',
+        'Skills and experience details'
+      ]
+
+      const verificationRequirements = [
+        'Phone verification',
+        'Email verification',
+        'Identity document verification',
+        'Skill verification',
+        'Background check'
+      ]
+
+      return {
+        basicRequirements,
+        verificationRequirements,
+        missingRequirements: verificationCheck.missing,
+        currentVerificationScore: verificationStatus?.overall_verification_score || 0
+      }
+    } catch (error) {
+      console.error('Error getting application requirements:', error)
+      return {
+        basicRequirements: [],
+        verificationRequirements: [],
+        missingRequirements: ['Error loading requirements'],
+        currentVerificationScore: 0
+      }
+    }
+  }
+
+  // Update application with additional verification documents
+  static async updateApplicationWithVerification(
+    applicationId: string,
+    additionalDocuments: { type: VerificationDocument['document_type'], name: string, fileUrl: string }[]
+  ): Promise<boolean> {
+    try {
+      // Get application to get user_id
+      const { data: application, error: appError } = await supabase
+        .from('tasker_applications')
+        .select('user_id')
+        .eq('id', applicationId)
+        .single()
+
+      if (appError) throw appError
+      if (!application) return false
+
+      // Upload additional verification documents
+      for (const doc of additionalDocuments) {
+        await ProfileVerificationService.uploadVerificationDocument(
+          application.user_id,
+          doc.type,
+          doc.name,
+          doc.fileUrl
+        )
+      }
+
+      return true
+    } catch (error) {
+      console.error('Error updating application with verification:', error)
       return false
     }
   }

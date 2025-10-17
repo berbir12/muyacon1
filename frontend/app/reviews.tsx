@@ -11,7 +11,7 @@ import {
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/SimpleAuthContext'
 import { RatingService, Review } from '../services/RatingService'
 import ReviewCard from '../components/ReviewCard'
 import RatingStars from '../components/RatingStars'
@@ -101,7 +101,7 @@ export default function ReviewsScreen() {
           <Ionicons name="arrow-back" size={24} color={Colors.neutral[900]} />
         </TouchableOpacity>
         <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>{userName}'s Reviews</Text>
+          <Text style={styles.headerTitle}>{userName}&apos;s Reviews</Text>
           <Text style={styles.headerSubtitle}>{totalReviews} reviews</Text>
         </View>
         <TouchableOpacity 
@@ -154,7 +154,7 @@ export default function ReviewsScreen() {
               <Ionicons name="star-outline" size={48} color={Colors.neutral[300]} />
               <Text style={styles.emptyTitle}>No reviews yet</Text>
               <Text style={styles.emptySubtitle}>
-                This user hasn't received any reviews yet.
+                This user hasn&apos;t received any reviews yet.
               </Text>
             </View>
           ) : (
@@ -311,15 +311,5 @@ const styles = StyleSheet.create({
     color: Colors.neutral[500],
     textAlign: 'center',
     lineHeight: 20,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: 16,
-    color: Colors.neutral[600],
-    marginTop: 10,
   },
 })

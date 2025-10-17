@@ -12,7 +12,7 @@ import {
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/SimpleAuthContext'
 import { TaskService, Task } from '../services/TaskService'
 import { TaskApplicationService } from '../services/TaskApplicationService'
 import TaskStatusManager from '../components/TaskStatusManager'
@@ -61,10 +61,14 @@ export default function TaskDetail() {
   const loadTaskDetails = async () => {
     if (!taskId || !user) return
 
+    console.log('TaskDetail: Loading task details for taskId:', taskId)
+    console.log('TaskDetail: User:', user?.id)
+    
     setLoading(true)
     try {
       // Get task details
       const taskDetails = await TaskService.getTaskById(taskId as string)
+      console.log('TaskDetail: Task details received:', taskDetails)
       setTask(taskDetails)
 
       // Check if user has already applied (only for taskers)
@@ -166,7 +170,7 @@ export default function TaskDetail() {
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={64} color={Colors.error[500]} />
           <Text style={styles.errorTitle}>Task Not Found</Text>
-          <Text style={styles.errorSubtitle}>This task may have been removed or doesn't exist.</Text>
+          <Text style={styles.errorSubtitle}>This task may have been removed or doesn&apos;t exist.</Text>
         </View>
       </SafeAreaView>
     )

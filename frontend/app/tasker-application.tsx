@@ -16,7 +16,7 @@ import {
 import DateTimePicker from '@react-native-community/datetimepicker'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/SimpleAuthContext'
 import { TaskerApplicationService } from '../services/TaskerApplicationService'
 import Colors from '../constants/Colors'
 

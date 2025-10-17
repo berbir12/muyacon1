@@ -179,7 +179,7 @@ export default function UserRatingProfile({
         <Ionicons name="star-outline" size={48} color={Colors.neutral[300]} />
         <Text style={styles.noReviewsTitle}>No Reviews Yet</Text>
         <Text style={styles.noReviewsText}>
-          {userName} hasn't received any reviews as a {userType} yet.
+          {userName} hasn&apos;t received any reviews as a {userType} yet.
         </Text>
       </View>
     )

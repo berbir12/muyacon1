@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase'
-import { ErrorHandlingService } from './ErrorHandlingService'
+import { handleError } from '../utils/errorHandler'
 
 export interface Task {
   id: string
@@ -18,7 +18,7 @@ export interface Task {
   estimated_hours?: number
   task_size: 'small' | 'medium' | 'large'
   urgency: 'flexible' | 'within_week' | 'urgent'
-  status: 'open' | 'assigned' | 'in_progress' | 'completed' | 'cancelled'
+  status: 'draft' | 'open' | 'assigned' | 'in_progress' | 'completed' | 'cancelled'
   customer_id: string
   tasker_id?: string
   category_id: string
@@ -29,6 +29,9 @@ export interface Task {
   is_featured: boolean
   is_urgent: boolean
   expires_at?: string
+  published_at?: string
+  assigned_at?: string
+  started_at?: string
   completed_at?: string
   cancelled_at?: string
   cancellation_reason?: string
@@ -71,20 +74,60 @@ export interface TaskApplication {
 }
 
 export class TaskService {
+  // Helper method to get profile names by IDs
+  private static async getProfileNames(profileIds: string[]): Promise<Map<string, string>> {
+    if (profileIds.length === 0) return new Map();
+    
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .in('id', profileIds);
+    
+    return new Map(profiles?.map(p => [p.id, p.full_name]) || []);
+  }
+
   // Get all available tasks (open status, not assigned to current user)
   static async getAvailableTasks(userId: string): Promise<Task[]> {
     try {
       console.log('TaskService: Getting available tasks for user:', userId)
       
+      // First get the profile ID for this user to exclude their own tasks
+      const { data: userProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', userId)
+        .single()
+
+      console.log('TaskService: User profile ID:', userProfile?.id)
+
+      if (!userProfile) {
+        console.log('No profile found for user:', userId)
+        // If no profile, just get all open tasks
+        const { data, error } = await supabase
+          .from('tasks')
+          .select('*')
+          .eq('status', 'open')
+          .order('created_at', { ascending: false })
+
+        if (error) throw error
+
+        // Get customer names separately to avoid foreign key issues
+        const customerIds = [...new Set(data.map(task => task.customer_id))];
+        const customerMap = await this.getProfileNames(customerIds);
+
+        return data.map(task => ({
+          ...task,
+          customer_name: customerMap.get(task.customer_id) || 'Unknown',
+          category_name: task.category || 'Other',
+          applications_count: 0
+        }))
+      }
+      
       const { data, error } = await supabase
         .from('tasks')
-        .select(`
-          *,
-          profiles!tasks_customer_id_fkey(full_name),
-          task_categories(name)
-        `)
+        .select('*')
         .eq('status', 'open')
-        .neq('customer_id', userId)
+        .neq('customer_id', userProfile.id) // Use profile ID to exclude user's own tasks
         .order('created_at', { ascending: false })
 
       console.log('TaskService: Query result - data:', data?.length || 0, 'error:', error)
@@ -94,17 +137,21 @@ export class TaskService {
         throw error
       }
 
+      // Get customer names separately to avoid foreign key issues
+      const customerIds = [...new Set(data.map(task => task.customer_id))];
+      const customerMap = await this.getProfileNames(customerIds);
+
       const mappedTasks = data.map(task => ({
         ...task,
-        customer_name: task.profiles?.full_name,
-        category_name: task.task_categories?.name,
+        customer_name: customerMap.get(task.customer_id) || 'Unknown',
+        category_name: task.category || 'Other',
         applications_count: 0
       }))
 
       console.log('TaskService: Mapped tasks:', mappedTasks.length)
       return mappedTasks
     } catch (error) {
-      const appError = ErrorHandlingService.handleApiError(error, 'getAvailableTasks')
+      const appError = handleError(error, 'getAvailableTasks')
       console.error('Error getting available tasks:', appError)
       return []
     }
@@ -113,26 +160,40 @@ export class TaskService {
   // Get user's posted tasks
   static async getMyTasks(userId: string): Promise<Task[]> {
     try {
+      // First get the profile ID for this user
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', userId)
+        .single()
+
+      console.log('TaskService: getMyTasks - User profile ID:', profile?.id)
+
+      if (!profile) {
+        console.log('No profile found for user:', userId)
+        return []
+      }
+
       const { data, error } = await supabase
         .from('tasks')
-        .select(`
-          *,
-          profiles!tasks_tasker_id_fkey(full_name),
-          task_categories(name)
-        `)
-        .eq('customer_id', userId)
+        .select('*')
+        .eq('customer_id', profile.id)
         .order('created_at', { ascending: false })
 
       if (error) throw error
 
+      // Get tasker names separately if any tasks have taskers
+      const taskerIds = data.filter(task => task.tasker_id).map(task => task.tasker_id);
+      const taskerMap = await this.getProfileNames(taskerIds);
+
       return data.map(task => ({
         ...task,
-        tasker_name: task.profiles?.full_name,
-        category_name: task.task_categories?.name,
+        tasker_name: task.tasker_id ? taskerMap.get(task.tasker_id) || 'Unknown' : '',
+        category_name: task.category || 'Other',
         applications_count: 0 // Will be calculated separately
       }))
     } catch (error) {
-      const appError = ErrorHandlingService.handleApiError(error, 'getMyTasks')
+      const appError = handleError(error, 'getMyTasks')
       console.error('Error getting my tasks:', appError)
       return []
     }
@@ -143,20 +204,20 @@ export class TaskService {
     try {
       const { data, error } = await supabase
         .from('tasks')
-        .select(`
-          *,
-          profiles!tasks_customer_id_fkey(full_name),
-          task_categories(name)
-        `)
+        .select('*')
         .eq('tasker_id', userId)
         .order('created_at', { ascending: false })
 
       if (error) throw error
 
+      // Get customer names separately
+      const customerIds = [...new Set(data.map(task => task.customer_id))];
+      const customerMap = await this.getProfileNames(customerIds);
+
       return data.map(task => ({
         ...task,
-        customer_name: task.profiles?.full_name,
-        category_name: task.task_categories?.name,
+        customer_name: customerMap.get(task.customer_id) || 'Unknown',
+        category_name: task.category || 'Other',
         applications_count: 0 // Will be calculated separately
       }))
     } catch (error) {
@@ -176,16 +237,13 @@ export class TaskService {
 
       if (error) throw error
 
-      // Get customer and category names separately
-      const [customerResult, categoryResult] = await Promise.all([
-        supabase.from('profiles').select('full_name').eq('id', data.customer_id).single(),
-        supabase.from('task_categories').select('name').eq('id', data.category_id).single()
-      ])
+      // Get customer name separately
+      const customerResult = await supabase.from('profiles').select('full_name').eq('id', data.customer_id).single()
 
       return {
         ...data,
         customer_name: customerResult.data?.full_name,
-        category_name: categoryResult.data?.name,
+        category_name: data.category || 'Other',
         applications_count: 0
       }
     } catch (error) {
@@ -227,6 +285,220 @@ export class TaskService {
     } catch (error) {
       console.error('Error applying to task:', error)
       return false
+    }
+  }
+
+  // Get task applications
+  static async getTaskApplications(taskId: string): Promise<TaskApplication[]> {
+    try {
+      const { data, error } = await supabase
+        .from('task_applications')
+        .select('*')
+        .eq('task_id', taskId)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+
+      // Get tasker names separately
+      const taskerIds = data.map(app => app.tasker_id);
+      const taskerMap = await this.getProfileNames(taskerIds);
+
+      return data.map(app => ({
+        ...app,
+        tasker_name: taskerMap.get(app.tasker_id) || 'Unknown',
+        tasker_rating: 0 // Will be calculated separately if needed
+      }))
+    } catch (error) {
+      console.error('Error getting task applications:', error)
+      return []
+    }
+  }
+
+  // Get user's applications
+  static async getMyApplications(userId: string): Promise<TaskApplication[]> {
+    try {
+      const { data, error } = await supabase
+        .from('task_applications')
+        .select(`
+          *,
+          task:tasks!task_id(title, status, budget)
+        `)
+        .eq('tasker_id', userId)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+
+      return data.map(app => ({
+        ...app,
+        tasker_name: '', // Not needed for my applications
+        tasker_rating: 0
+      }))
+    } catch (error) {
+      console.error('Error getting my applications:', error)
+      return []
+    }
+  }
+
+  // Search tasks
+  static async searchTasks(query: string, category?: string): Promise<Task[]> {
+    try {
+      let queryBuilder = supabase
+        .from('tasks')
+        .select('*')
+        .eq('status', 'open')
+        .or(`title.ilike.%${query}%,description.ilike.%${query}%`)
+
+      if (category && category !== 'All') {
+        queryBuilder = queryBuilder.eq('category', category)
+      }
+
+      const { data, error } = await queryBuilder.order('created_at', { ascending: false })
+
+      if (error) throw error
+
+      // Get customer names separately
+      const customerIds = [...new Set(data.map(task => task.customer_id))];
+      const customerMap = await this.getProfileNames(customerIds);
+
+      return data.map(task => ({
+        ...task,
+        customer_name: customerMap.get(task.customer_id) || 'Unknown',
+        category_name: task.category || 'Other',
+        applications_count: 0
+      }))
+    } catch (error) {
+      console.error('Error searching tasks:', error)
+      return []
+    }
+  }
+
+  // Get task categories
+  static async getTaskCategories(): Promise<{ id: string; name: string; slug: string }[]> {
+    try {
+      // Return hardcoded categories for now
+      return [
+        { id: '1', name: 'Cleaning', slug: 'cleaning' },
+        { id: '2', name: 'Repairs', slug: 'repairs' },
+        { id: '3', name: 'Moving', slug: 'moving' },
+        { id: '4', name: 'Gardening', slug: 'gardening' },
+        { id: '5', name: 'Delivery', slug: 'delivery' },
+        { id: '6', name: 'Pet Care', slug: 'pet-care' },
+        { id: '7', name: 'Tutoring', slug: 'tutoring' },
+        { id: '8', name: 'Other', slug: 'other' }
+      ]
+    } catch (error) {
+      console.error('Error getting task categories:', error)
+      return []
+    }
+  }
+
+  // Get featured tasks
+  static async getFeaturedTasks(): Promise<Task[]> {
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('is_featured', true)
+        .eq('status', 'open')
+        .order('created_at', { ascending: false })
+        .limit(10)
+
+      if (error) throw error
+
+      // Get customer names separately
+      const customerIds = [...new Set(data.map(task => task.customer_id))];
+      const customerMap = await this.getProfileNames(customerIds);
+
+      return data?.map(task => ({
+        ...task,
+        customer_name: customerMap.get(task.customer_id) || 'Unknown',
+        customer_avatar: '', // Will be added later if needed
+        category_name: task.category || 'Other',
+      })) || []
+    } catch (error) {
+      console.error('Error getting featured tasks:', error)
+      return []
+    }
+  }
+
+  // Get recent tasks
+  static async getRecentTasks(): Promise<Task[]> {
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('status', 'open')
+        .order('created_at', { ascending: false })
+        .limit(20)
+
+      if (error) throw error
+
+      // Get customer names separately
+      const customerIds = [...new Set(data.map(task => task.customer_id))];
+      const customerMap = await this.getProfileNames(customerIds);
+
+      return data?.map(task => ({
+        ...task,
+        customer_name: customerMap.get(task.customer_id) || 'Unknown',
+        customer_avatar: '', // Will be added later if needed
+        category_name: task.category || 'Other',
+      })) || []
+    } catch (error) {
+      console.error('Error getting recent tasks:', error)
+      return []
+    }
+  }
+
+  // Get a single task by ID with all details
+  static async getTaskById(taskId: string): Promise<Task | null> {
+    try {
+      console.log('TaskService: Getting task by ID:', taskId)
+      
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('id', taskId)
+        .single()
+
+      console.log('TaskService: Database query result - data:', data, 'error:', error)
+
+      if (error) throw error
+      if (!data) {
+        console.log('TaskService: No task found with ID:', taskId)
+        return null
+      }
+
+      // Get customer name
+      const { data: customer } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', data.customer_id)
+        .single()
+
+      // Get tasker name if assigned
+      let taskerName = ''
+      if (data.tasker_id) {
+        const { data: tasker } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', data.tasker_id)
+          .single()
+        taskerName = tasker?.full_name || ''
+      }
+
+      // Use category from task data
+      const categoryName = data.category || 'Other'
+
+      return {
+        ...data,
+        customer_name: customer?.full_name || '',
+        tasker_name: taskerName,
+        category_name: categoryName,
+        applications_count: 0 // Will be calculated separately if needed
+      }
+    } catch (error) {
+      console.error('Error getting task by ID:', error)
+      return null
     }
   }
 
@@ -275,78 +547,6 @@ export class TaskService {
 
       if (appUpdateError) throw appUpdateError
 
-      // Create status update record
-      const { error: statusError } = await supabase
-        .from('task_status_updates')
-        .insert({
-          task_id: taskId,
-          status: 'assigned',
-          updated_by: application.tasks.customer_id,
-          reason: 'Application accepted',
-          notes: `Task assigned to tasker for $${application.proposed_price}`
-        })
-
-      if (statusError) {
-        console.error('Error creating status update:', statusError)
-        // Don't fail the whole operation for this
-      }
-
-      // Reject all other applications for this task
-      const { error: rejectError } = await supabase
-        .from('task_applications')
-        .update({ 
-          status: 'rejected',
-          updated_at: new Date().toISOString()
-        })
-        .eq('task_id', taskId)
-        .neq('id', applicationId)
-
-      if (rejectError) {
-        console.error('Error rejecting other applications:', rejectError)
-        // Don't fail the whole operation for this
-      }
-
-      // Send notifications
-      try {
-        // Get tasker details for notification
-        const { data: tasker } = await supabase
-          .from('profiles')
-          .select('full_name')
-          .eq('id', application.tasker_id)
-          .single()
-
-        // Send notification to tasker
-        await supabase
-          .from('notifications')
-          .insert({
-            user_id: application.tasker_id,
-            title: 'Application Accepted!',
-            message: `Your application for "${application.tasks.title}" has been accepted.`,
-            type: 'application',
-            data: {
-              task_id: taskId,
-              application_id: applicationId
-            }
-          })
-
-        // Send notification to customer
-        await supabase
-          .from('notifications')
-          .insert({
-            user_id: application.tasks.customer_id,
-            title: 'Task Assigned',
-            message: `"${application.tasks.title}" has been assigned to ${tasker?.full_name || 'a tasker'}.`,
-            type: 'task',
-            data: {
-              task_id: taskId,
-              tasker_id: application.tasker_id
-            }
-          })
-      } catch (notificationError) {
-        console.error('Error sending notifications:', notificationError)
-        // Don't fail the whole operation for this
-      }
-
       return true
     } catch (error) {
       console.error('Error accepting application:', error)
@@ -354,15 +554,64 @@ export class TaskService {
     }
   }
 
-  // Update task status
-  static async updateTaskStatus(taskId: string, status: Task['status']): Promise<boolean> {
+  // Update task status with proper workflow validation
+  static async updateTaskStatus(taskId: string, status: Task['status'], updatedBy: string): Promise<boolean> {
     try {
+      // Get current task details
+      const { data: currentTask, error: fetchError } = await supabase
+        .from('tasks')
+        .select('id, status, customer_id, tasker_id, created_at, expires_at')
+        .eq('id', taskId)
+        .single()
+
+      if (fetchError || !currentTask) {
+        throw new Error('Task not found')
+      }
+
+      // Validate status transition
+      const validTransitions: Record<string, string[]> = {
+        'draft': ['published', 'cancelled'],
+        'published': ['assigned', 'cancelled'],
+        'assigned': ['in_progress', 'cancelled'],
+        'in_progress': ['completed', 'cancelled'],
+        'completed': [], // Terminal state
+        'cancelled': [] // Terminal state
+      }
+
+      const currentStatus = currentTask.status as Task['status']
+      if (!validTransitions[currentStatus]?.includes(status)) {
+        throw new Error(`Invalid status transition from ${currentStatus} to ${status}`)
+      }
+
+      // Check permissions
+      if (status === 'published' && currentTask.customer_id !== updatedBy) {
+        throw new Error('Only task owner can publish tasks')
+      }
+      if (status === 'assigned' && currentTask.customer_id !== updatedBy) {
+        throw new Error('Only task owner can assign tasks')
+      }
+      if (status === 'in_progress' && currentTask.tasker_id !== updatedBy) {
+        throw new Error('Only assigned tasker can start task')
+      }
+      if (status === 'completed' && currentTask.tasker_id !== updatedBy) {
+        throw new Error('Only assigned tasker can complete task')
+      }
+
       const updateData: any = {
         status,
         updated_at: new Date().toISOString()
       }
 
-      if (status === 'completed') {
+      // Set specific timestamps based on status
+      if (status === 'published') {
+        updateData.published_at = new Date().toISOString()
+        // Set expiration date (default 30 days from now)
+        updateData.expires_at = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+      } else if (status === 'assigned') {
+        updateData.assigned_at = new Date().toISOString()
+      } else if (status === 'in_progress') {
+        updateData.started_at = new Date().toISOString()
+      } else if (status === 'completed') {
         updateData.completed_at = new Date().toISOString()
       } else if (status === 'cancelled') {
         updateData.cancelled_at = new Date().toISOString()
@@ -412,58 +661,6 @@ export class TaskService {
 
       if (updateError) throw updateError
 
-      // Create status update record
-      const { error: statusError } = await supabase
-        .from('task_status_updates')
-        .insert({
-          task_id: taskId,
-          status: 'completed',
-          updated_by: completedBy,
-          reason: 'Task completed',
-          notes: notes || 'Task has been completed successfully'
-        })
-
-      if (statusError) {
-        console.error('Error creating status update:', statusError)
-        // Don't fail the whole operation for this
-      }
-
-      // Send notifications
-      try {
-        const { data: tasker } = await supabase
-          .from('profiles')
-          .select('full_name')
-          .eq('id', task.tasker_id)
-          .single()
-
-        // Notify customer
-        await supabase
-          .from('notifications')
-          .insert({
-            user_id: task.customer_id,
-            title: 'Task Completed!',
-            message: `"${task.title}" has been completed by ${tasker?.full_name || 'the tasker'}.`,
-            type: 'task',
-            data: { task_id: taskId }
-          })
-
-        // Notify tasker
-        if (task.tasker_id) {
-          await supabase
-            .from('notifications')
-            .insert({
-              user_id: task.tasker_id,
-              title: 'Task Completed',
-              message: `You have completed "${task.title}". Great job!`,
-              type: 'task',
-              data: { task_id: taskId }
-            })
-        }
-      } catch (notificationError) {
-        console.error('Error sending notifications:', notificationError)
-        // Don't fail the whole operation for this
-      }
-
       return true
     } catch (error) {
       console.error('Error completing task:', error)
@@ -498,52 +695,6 @@ export class TaskService {
 
       if (updateError) throw updateError
 
-      // Create status update record
-      const { error: statusError } = await supabase
-        .from('task_status_updates')
-        .insert({
-          task_id: taskId,
-          status: 'cancelled',
-          updated_by: cancelledBy,
-          reason: 'Task cancelled',
-          notes: reason
-        })
-
-      if (statusError) {
-        console.error('Error creating status update:', statusError)
-        // Don't fail the whole operation for this
-      }
-
-      // Send notifications
-      try {
-        const notificationMessage = `"${task.title}" has been cancelled. Reason: ${reason}`
-
-        if (task.tasker_id) {
-          await supabase
-            .from('notifications')
-            .insert({
-              user_id: task.tasker_id,
-              title: 'Task Cancelled',
-              message: notificationMessage,
-              type: 'task',
-              data: { task_id: taskId }
-            })
-        }
-
-        await supabase
-          .from('notifications')
-          .insert({
-            user_id: task.customer_id,
-            title: 'Task Cancelled',
-            message: notificationMessage,
-            type: 'task',
-            data: { task_id: taskId }
-          })
-      } catch (notificationError) {
-        console.error('Error sending notifications:', notificationError)
-        // Don't fail the whole operation for this
-      }
-
       return true
     } catch (error) {
       console.error('Error cancelling task:', error)
@@ -551,210 +702,219 @@ export class TaskService {
     }
   }
 
-  // Get task applications
-  static async getTaskApplications(taskId: string): Promise<TaskApplication[]> {
+  // Handle expired tasks
+  static async handleExpiredTasks(): Promise<{ expired: number; updated: number }> {
     try {
-      const { data, error } = await supabase
-        .from('task_applications')
-        .select(`
-          *,
-          profiles!task_applications_tasker_id_fkey(full_name, rating_average)
-        `)
-        .eq('task_id', taskId)
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-
-      return data.map(app => ({
-        ...app,
-        tasker_name: app.profiles?.full_name,
-        tasker_rating: app.profiles?.rating_average
-      }))
-    } catch (error) {
-      console.error('Error getting task applications:', error)
-      return []
-    }
-  }
-
-  // Get user's applications
-  static async getMyApplications(userId: string): Promise<TaskApplication[]> {
-    try {
-      const { data, error } = await supabase
-        .from('task_applications')
-        .select(`
-          *,
-          tasks!task_applications_task_id_fkey(title, status, budget)
-        `)
-        .eq('tasker_id', userId)
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-
-      return data.map(app => ({
-        ...app,
-        tasker_name: '', // Not needed for my applications
-        tasker_rating: 0
-      }))
-    } catch (error) {
-      console.error('Error getting my applications:', error)
-      return []
-    }
-  }
-
-  // Search tasks
-  static async searchTasks(query: string, category?: string): Promise<Task[]> {
-    try {
-      let queryBuilder = supabase
+      const now = new Date().toISOString()
+      
+      // Find expired tasks that are still open
+      const { data: expiredTasks, error: fetchError } = await supabase
         .from('tasks')
-        .select(`
-          *,
-          profiles!tasks_customer_id_fkey(full_name),
-          task_categories(name)
-        `)
+        .select('id, status')
         .eq('status', 'open')
-        .or(`title.ilike.%${query}%,description.ilike.%${query}%`)
+        .lt('expires_at', now)
 
-      if (category && category !== 'All') {
-        queryBuilder = queryBuilder.eq('task_categories.name', category)
+      if (fetchError) throw fetchError
+
+      if (!expiredTasks || expiredTasks.length === 0) {
+        return { expired: 0, updated: 0 }
       }
 
-      const { data, error } = await queryBuilder.order('created_at', { ascending: false })
-
-      if (error) throw error
-
-      return data.map(task => ({
-        ...task,
-        customer_name: task.profiles?.full_name,
-        category_name: task.task_categories?.name,
-        applications_count: 0
-      }))
-    } catch (error) {
-      console.error('Error searching tasks:', error)
-      return []
-    }
-  }
-
-  // Get task categories
-  static async getTaskCategories(): Promise<{ id: string; name: string; slug: string }[]> {
-    try {
-      const { data, error } = await supabase
-        .from('task_categories')
-        .select('id, name, slug')
-        .eq('is_active', true)
-        .order('sort_order', { ascending: true })
-
-      if (error) throw error
-      return data || []
-    } catch (error) {
-      console.error('Error getting task categories:', error)
-      return []
-    }
-  }
-
-  // Get featured tasks
-  static async getFeaturedTasks(): Promise<Task[]> {
-    try {
-      const { data, error } = await supabase
+      // Update expired tasks to cancelled status
+      const { error: updateError } = await supabase
         .from('tasks')
-        .select(`
-          *,
-          profiles!tasks_customer_id_fkey(full_name, avatar_url),
-          category:task_categories(name)
-        `)
-        .eq('is_featured', true)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false })
-        .limit(10)
+        .update({
+          status: 'cancelled',
+          cancelled_at: now,
+          cancellation_reason: 'Task expired',
+          updated_at: now
+        })
+        .in('id', expiredTasks.map(task => task.id))
 
-      if (error) throw error
+      if (updateError) throw updateError
 
-      return data?.map(task => ({
-        ...task,
-        customer_name: task.profiles?.full_name,
-        customer_avatar: task.profiles?.avatar_url,
-        category_name: task.category?.name,
-      })) || []
+      return { expired: expiredTasks.length, updated: expiredTasks.length }
     } catch (error) {
-      console.error('Error getting featured tasks:', error)
-      return []
+      console.error('Error handling expired tasks:', error)
+      return { expired: 0, updated: 0 }
     }
   }
 
-  // Get recent tasks
-  static async getRecentTasks(): Promise<Task[]> {
+  // Get tasks expiring soon (within specified days)
+  static async getTasksExpiringSoon(days: number = 3): Promise<Task[]> {
     try {
-      const { data, error } = await supabase
-        .from('tasks')
-        .select(`
-          *,
-          profiles!tasks_customer_id_fkey(full_name, avatar_url),
-          category:task_categories(name)
-        `)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false })
-        .limit(20)
-
-      if (error) throw error
-
-      return data?.map(task => ({
-        ...task,
-        customer_name: task.profiles?.full_name,
-        customer_avatar: task.profiles?.avatar_url,
-        category_name: task.category?.name,
-      })) || []
-    } catch (error) {
-      console.error('Error getting recent tasks:', error)
-      return []
-    }
-  }
-
-  // Get a single task by ID with all details
-  static async getTaskById(taskId: string): Promise<Task | null> {
-    try {
+      const futureDate = new Date()
+      futureDate.setDate(futureDate.getDate() + days)
+      
       const { data, error } = await supabase
         .from('tasks')
         .select('*')
-        .eq('id', taskId)
-        .single()
+        .eq('status', 'open')
+        .lte('expires_at', futureDate.toISOString())
+        .gte('expires_at', new Date().toISOString())
+        .order('expires_at', { ascending: true })
 
       if (error) throw error
-      if (!data) return null
 
-      // Get customer name
-      const { data: customer } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('id', data.customer_id)
-        .single()
+      // Get customer names
+      const customerIds = [...new Set(data.map(task => task.customer_id))];
+      const customerMap = await this.getProfileNames(customerIds);
 
-      // Get tasker name if assigned
-      let taskerName = ''
-      if (data.tasker_id) {
-        const { data: tasker } = await supabase
-          .from('profiles')
-          .select('full_name')
-          .eq('id', data.tasker_id)
-          .single()
-        taskerName = tasker?.full_name || ''
-      }
-
-      // Get category name
-      const { data: category } = await supabase
-        .from('task_categories')
-        .select('name')
-        .eq('id', data.category_id)
-        .single()
-
-      return {
-        ...data,
-        customer_name: customer?.full_name || '',
-        tasker_name: taskerName,
-        category_name: category?.name || '',
-        applications_count: 0 // Will be calculated separately if needed
-      }
+      return data.map(task => ({
+        ...task,
+        customer_name: customerMap.get(task.customer_id) || 'Unknown',
+        category_name: task.category || 'Other',
+        applications_count: 0
+      }))
     } catch (error) {
-      console.error('Error getting task by ID:', error)
-      return null
+      console.error('Error getting tasks expiring soon:', error)
+      return []
+    }
+  }
+
+  // Bulk operations
+  static async bulkUpdateTaskStatus(taskIds: string[], status: Task['status'], updatedBy: string): Promise<{ success: number; failed: number; errors: string[] }> {
+    const results = { success: 0, failed: 0, errors: [] as string[] }
+
+    for (const taskId of taskIds) {
+      try {
+        const success = await this.updateTaskStatus(taskId, status, updatedBy)
+        if (success) {
+          results.success++
+        } else {
+          results.failed++
+          results.errors.push(`Failed to update task ${taskId}`)
+        }
+      } catch (error) {
+        results.failed++
+        results.errors.push(`Error updating task ${taskId}: ${error}`)
+      }
+    }
+
+    return results
+  }
+
+  // Bulk delete tasks (only for draft or cancelled tasks)
+  static async bulkDeleteTasks(taskIds: string[], userId: string): Promise<{ success: number; failed: number; errors: string[] }> {
+    const results = { success: 0, failed: 0, errors: [] as string[] }
+
+    try {
+      // First, verify all tasks belong to user and are in deletable status
+      const { data: tasks, error: fetchError } = await supabase
+        .from('tasks')
+        .select('id, customer_id, status')
+        .in('id', taskIds)
+
+      if (fetchError) throw fetchError
+
+      const deletableTasks = tasks.filter(task => 
+        task.customer_id === userId && 
+        (task.status === 'draft' || task.status === 'cancelled')
+      )
+
+      if (deletableTasks.length !== taskIds.length) {
+        results.errors.push('Some tasks cannot be deleted (not owned by user or not in deletable status)')
+      }
+
+      if (deletableTasks.length > 0) {
+        const { error: deleteError } = await supabase
+          .from('tasks')
+          .delete()
+          .in('id', deletableTasks.map(task => task.id))
+
+        if (deleteError) throw deleteError
+
+        results.success = deletableTasks.length
+        results.failed = taskIds.length - deletableTasks.length
+      } else {
+        results.failed = taskIds.length
+      }
+
+    } catch (error) {
+      results.failed = taskIds.length
+      results.errors.push(`Bulk delete error: ${error}`)
+    }
+
+    return results
+  }
+
+  // Get task statistics for dashboard
+  static async getTaskStatistics(userId: string): Promise<{
+    totalTasks: number
+    openTasks: number
+    assignedTasks: number
+    completedTasks: number
+    cancelledTasks: number
+    totalEarnings: number
+    averageRating: number
+  }> {
+    try {
+      // Get user's profile ID
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', userId)
+        .single()
+
+      if (!profile) {
+        return {
+          totalTasks: 0,
+          openTasks: 0,
+          assignedTasks: 0,
+          completedTasks: 0,
+          cancelledTasks: 0,
+          totalEarnings: 0,
+          averageRating: 0
+        }
+      }
+
+      // Get tasks as customer
+      const { data: customerTasks } = await supabase
+        .from('tasks')
+        .select('status, budget, final_price, customer_rating')
+        .eq('customer_id', profile.id)
+
+      // Get tasks as tasker
+      const { data: taskerTasks } = await supabase
+        .from('tasks')
+        .select('status, budget, final_price, tasker_rating')
+        .eq('tasker_id', profile.id)
+
+      const allTasks = [...(customerTasks || []), ...(taskerTasks || [])]
+
+      const stats = {
+        totalTasks: allTasks.length,
+        openTasks: allTasks.filter(t => t.status === 'open').length,
+        assignedTasks: allTasks.filter(t => t.status === 'assigned').length,
+        completedTasks: allTasks.filter(t => t.status === 'completed').length,
+        cancelledTasks: allTasks.filter(t => t.status === 'cancelled').length,
+        totalEarnings: allTasks
+          .filter(t => t.status === 'completed' && t.final_price)
+          .reduce((sum, t) => sum + (t.final_price || 0), 0),
+        averageRating: 0
+      }
+
+      // Calculate average rating
+      const ratings = allTasks
+        .map(t => t.customer_rating || t.tasker_rating)
+        .filter(r => r && r > 0)
+      
+      if (ratings.length > 0) {
+        stats.averageRating = ratings.reduce((sum, r) => sum + r, 0) / ratings.length
+      }
+
+      return stats
+    } catch (error) {
+      console.error('Error getting task statistics:', error)
+      return {
+        totalTasks: 0,
+        openTasks: 0,
+        assignedTasks: 0,
+        completedTasks: 0,
+        cancelledTasks: 0,
+        totalEarnings: 0,
+        averageRating: 0
+      }
     }
   }
 }

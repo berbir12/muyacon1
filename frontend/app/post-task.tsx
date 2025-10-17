@@ -5,26 +5,24 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  SafeAreaView,
   TextInput,
   Alert,
   KeyboardAvoidingView,
   Platform,
   Keyboard,
   TouchableWithoutFeedback,
-  Image,
   Modal,
 } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 // Removed the problematic DateTimePicker import
 import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/SimpleAuthContext'
 import { TaskService } from '../services/TaskService'
 import { SimpleNotificationService } from '../services/SimpleNotificationService'
 import { PushNotificationService } from '../services/PushNotificationService'
 import { supabase } from '../lib/supabase'
 import Colors from '../constants/Colors'
-import ImageUpload from '../components/ImageUpload'
 import MultiImageUpload from '../components/MultiImageUpload'
 
 const categories = [
@@ -95,6 +93,45 @@ export default function PostTask() {
     return null
   }
 
+  const ensureUserProfile = async (userId: string): Promise<string> => {
+    try {
+      // Check if profile exists
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', userId)
+        .single()
+
+      if (existingProfile) {
+        return existingProfile.id
+      }
+
+      // Create profile if it doesn't exist
+      const { data: newProfile, error } = await supabase
+        .from('profiles')
+        .insert({
+          user_id: userId,
+          full_name: user?.full_name || 'User',
+          username: user?.username || 'user',
+          phone: user?.phone || '',
+          role: 'customer',
+          current_mode: 'customer'
+        })
+        .select('id')
+        .single()
+
+      if (error) {
+        console.error('Error creating profile:', error)
+        return userId // Fallback to user ID
+      }
+
+      return newProfile.id
+    } catch (error) {
+      console.error('Error ensuring user profile:', error)
+      return userId // Fallback to user ID
+    }
+  }
+
   const getOrCreateCategory = async (categoryName: string): Promise<string> => {
     try {
       // First try to find existing category
@@ -128,7 +165,7 @@ export default function PostTask() {
     } catch (error) {
       console.error('Error getting/creating category:', error)
       // Return a default category ID or create a fallback
-      return 'default-category-id'
+      return '550e8400-e29b-41d4-a716-446655440000' // General category UUID
     }
   }
 
@@ -162,7 +199,10 @@ export default function PostTask() {
 
     setLoading(true)
     try {
-      // First, get or create category
+      // First ensure user profile exists and get profile ID
+      const profileId = await ensureUserProfile(user.id)
+      
+      // Then get or create category
       const categoryId = await getOrCreateCategory(selectedCategory)
       
       const taskData = {
@@ -183,7 +223,7 @@ export default function PostTask() {
         task_size: 'medium' as const,
         urgency: urgent ? 'urgent' as const : 'flexible' as const,
         status: 'open' as const,
-        customer_id: user.id,
+        customer_id: profileId, // Use the actual profile ID
         category_id: categoryId,
         requirements: [],
         attachments: [],
@@ -224,6 +264,9 @@ export default function PostTask() {
             const defaultTime = new Date()
             defaultTime.setHours(0, 0, 0, 0) // Set to 12:00 AM
             setTaskTime(defaultTime)
+            
+            // Redirect to Jobs tab
+            router.push('/jobs')
           }
         }
       ])

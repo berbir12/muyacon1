@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/SimpleAuthContext'
 import Colors from '../constants/Colors'
 
 interface TimeSlot {
@@ -296,7 +296,7 @@ export default function WorkSchedule() {
           <View style={styles.tipCard}>
             <Ionicons name="bulb-outline" size={20} color={Colors.warning[500]} />
             <Text style={styles.tipText}>
-              Set your availability to match when you're most productive. 
+              Set your availability to match when you&apos;re most productive. 
               Customers will see your available hours when booking.
             </Text>
           </View>

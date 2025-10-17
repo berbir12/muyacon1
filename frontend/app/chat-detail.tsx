@@ -16,7 +16,7 @@ import {
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter, useLocalSearchParams } from 'expo-router'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/SimpleAuthContext'
 import { ChatService, Chat } from '../services/ChatService'
 import { BookingService } from '../services/BookingService'
 import { SimpleNotificationService } from '../services/SimpleNotificationService'
@@ -39,7 +39,7 @@ interface Message {
 // Using Chat interface from ChatService
 
 export default function ChatDetail() {
-  const { user, isAuthenticated, isLoading } = useAuth()
+  const { user, isAuthenticated, loading: isLoading } = useAuth()
   const router = useRouter()
   const { chatId, taskId, taskTitle, otherUserName } = useLocalSearchParams<{ 
     chatId: string; 
@@ -184,15 +184,15 @@ export default function ChatDetail() {
           setParticipantName(profile.full_name)
         } else {
           // Fallback based on user mode
-          setParticipantName(user.currentMode === 'customer' ? 'Tasker' : 'Customer')
+          setParticipantName(user.current_mode === 'customer' ? 'Tasker' : 'Customer')
         }
       } else {
         // Final fallback
-        setParticipantName(user.currentMode === 'customer' ? 'Tasker' : 'Customer')
+        setParticipantName(user.current_mode === 'customer' ? 'Tasker' : 'Customer')
       }
     } catch (error) {
       console.error('Error loading participant name:', error)
-      setParticipantName(user.currentMode === 'customer' ? 'Tasker' : 'Customer')
+      setParticipantName(user.current_mode === 'customer' ? 'Tasker' : 'Customer')
     }
   }
 
@@ -266,7 +266,8 @@ export default function ChatDetail() {
       let success = false
       
       if (chatId) {
-        success = await ChatService.sendMessage(chatId, messageText, 'text')
+        const result = await ChatService.sendMessage(chatId, user.id, messageText)
+        success = result !== null
       } else if (taskId) {
         success = await ChatService.sendMessageToChat(taskId, messageText, user.id)
       }

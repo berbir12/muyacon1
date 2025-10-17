@@ -12,7 +12,7 @@ import {
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useLocation } from '../contexts/LocationContext'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/SimpleAuthContext'
 import { Colors } from '../constants/Colors'
 
 interface LocationTaskDiscoveryProps {

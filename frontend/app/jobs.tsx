@@ -14,7 +14,7 @@ import {
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter, useFocusEffect } from 'expo-router'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/SimpleAuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import { TaskService, Task } from '../services/TaskService'
 import { TaskApplicationService } from '../services/TaskApplicationService'
@@ -46,7 +46,7 @@ const sortOptions = [
 ]
 
 export default function Jobs() {
-  const { user, isAuthenticated, isLoading } = useAuth()
+  const { user, isAuthenticated, loading: isLoading } = useAuth()
   const { t } = useLanguage()
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState('')
@@ -79,6 +79,18 @@ export default function Jobs() {
     }
   }, [activeTab, user, isAuthenticated])
 
+  // Refresh tasks when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (isAuthenticated && user) {
+        loadTasks()
+        if (activeTab === 'available' && (user.role === 'tasker' || user.role === 'both')) {
+          checkAppliedTasks(tasks)
+        }
+      }
+    }, [isAuthenticated, user, activeTab])
+  )
+
   // Show loading while auth is being determined
   if (isLoading) {
     return (
@@ -94,15 +106,6 @@ export default function Jobs() {
   if (!isAuthenticated) {
     return null
   }
-
-  // Refresh applied tasks when screen comes into focus
-  useFocusEffect(
-    useCallback(() => {
-      if (isAuthenticated && user && activeTab === 'available' && (user.role === 'tasker' || user.role === 'both')) {
-        checkAppliedTasks(tasks)
-      }
-    }, [isAuthenticated, user, activeTab, tasks])
-  )
 
   const loadTasks = async () => {
     if (!user) {
@@ -483,7 +486,7 @@ export default function Jobs() {
         )}
 
         {/* Tasker Registration Prompt */}
-        {user && user.role !== 'tasker' && user.role !== 'both' && user.taskerApplicationStatus !== 'pending' && activeTab === 'available' && (
+        {user && user.role !== 'tasker' && user.role !== 'both' && user.tasker_application_status !== 'pending' && activeTab === 'available' && (
           <View style={styles.taskerPrompt}>
             <View style={styles.taskerPromptContent}>
               <Ionicons name="briefcase" size={18} color={Colors.primary[500]} />
@@ -502,13 +505,13 @@ export default function Jobs() {
         )}
 
         {/* Application Status Banner */}
-        {user && user.taskerApplicationStatus === 'pending' && activeTab === 'available' && (
+        {user && user.tasker_application_status === 'pending' && activeTab === 'available' && (
           <View style={styles.statusBanner}>
             <View style={styles.statusBannerContent}>
               <Ionicons name="time" size={24} color={Colors.warning[500]} />
               <View style={styles.statusBannerText}>
                 <Text style={styles.statusBannerTitle}>Application Under Review</Text>
-                <Text style={styles.statusBannerSubtitle}>Your tasker application is being reviewed. You'll be notified once approved.</Text>
+                <Text style={styles.statusBannerSubtitle}>Your tasker application is being reviewed. You&apos;ll be notified once approved.</Text>
               </View>
             </View>
           </View>

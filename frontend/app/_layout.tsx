@@ -1,15 +1,13 @@
-import React, { useState, useEffect } from 'react'
-import { View } from 'react-native'
+import React, { useEffect } from 'react'
+import { View, Text } from 'react-native'
 import { Tabs } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
-import { AuthProvider, useAuth } from '../contexts/AuthContext'
+import { AuthProvider, useAuth } from '../contexts/SimpleAuthContext'
 import { LanguageProvider } from '../contexts/LanguageContext'
 import { NotificationProvider, useNotifications } from '../contexts/NotificationContext'
 import { ToastProvider } from '../contexts/ToastContext'
-import { WalletProvider } from '../contexts/WalletContext'
 import NotificationBadge from '../components/NotificationBadge'
 import Colors from '../constants/Colors'
-import CustomSplashScreen from '../components/SplashScreen'
 import * as SplashScreen from 'expo-splash-screen'
 
 function TabNavigator() {
@@ -92,20 +90,6 @@ function TabNavigator() {
         }}
       />
       
-      {/* Notifications Tab - Always visible */}
-      <Tabs.Screen
-        name="notifications"
-        options={{
-          title: 'Notifications',
-          tabBarIcon: ({ color, size }) => (
-            <View style={{ position: 'relative' }}>
-              <Ionicons name="notifications" size={size} color={color} />
-              <NotificationBadge size={18} fontSize={10} />
-            </View>
-          ),
-        }}
-      />
-      
       {/* Applications Tab - Hidden, accessible from task details */}
       <Tabs.Screen
         name="task-applications"
@@ -118,16 +102,14 @@ function TabNavigator() {
         }}
       />
       
-      {/* Wallet Tab - Always visible */}
+      {/* Hidden Tabs - Not visible in tab bar, accessible via navigation */}
       <Tabs.Screen
-        name="wallet"
+        name="notifications"
         options={{
-          title: 'Wallet',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="wallet" size={size} color={color} />
-          ),
+          href: null, // Hide from tab bar
         }}
       />
+      
       
       {/* Profile Tab - Always visible */}
       <Tabs.Screen
@@ -204,12 +186,6 @@ function TabNavigator() {
         }}
       />
       
-      <Tabs.Screen
-        name="notifications"
-        options={{
-          href: null, // Hide from tab bar
-        }}
-      />
       
       {/* New Settings Screens */}
       <Tabs.Screen
@@ -233,36 +209,9 @@ function TabNavigator() {
         }}
       />
       
-      <Tabs.Screen
-        name="earnings"
-        options={{
-          href: null, // Hide from tab bar
-        }}
-      />
-      
-      <Tabs.Screen
-        name="help-center"
-        options={{
-          href: null, // Hide from tab bar
-        }}
-      />
       
       <Tabs.Screen
         name="contact-us"
-        options={{
-          href: null, // Hide from tab bar
-        }}
-      />
-      
-      <Tabs.Screen
-        name="terms-of-service"
-        options={{
-          href: null, // Hide from tab bar
-        }}
-      />
-      
-      <Tabs.Screen
-        name="privacy-policy"
         options={{
           href: null, // Hide from tab bar
         }}
@@ -271,46 +220,51 @@ function TabNavigator() {
   )
 }
 
-export default function RootLayout() {
-  const [isSplashVisible, setIsSplashVisible] = useState(true);
-  const [appIsReady, setAppIsReady] = useState(false);
+function AppContent() {
+  const { loading } = useAuth();
 
+  useEffect(() => {
+    if (!loading) {
+      // Hide the splash screen when auth loading is complete
+      SplashScreen.hideAsync();
+    }
+  }, [loading]);
+
+  if (loading) {
+    // Show a simple loading indicator while splash screen is visible
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#ffffff' }}>
+        <Text style={{ fontSize: 16, color: '#666', marginTop: 20 }}>Loading...</Text>
+      </View>
+    );
+  }
+
+  return <TabNavigator />;
+}
+
+export default function RootLayout() {
   useEffect(() => {
     async function prepare() {
       try {
         // Keep the splash screen visible while we fetch resources
         await SplashScreen.preventAutoHideAsync();
-        
-        // App loads in background - no artificial delay
-        setAppIsReady(true);
       } catch (e) {
         console.warn(e);
-        setAppIsReady(true);
       }
     }
 
     prepare();
   }, []);
 
-  const handleSplashFinish = () => {
-    setIsSplashVisible(false);
-  };
-
-  if (!appIsReady || isSplashVisible) {
-    return <CustomSplashScreen onFinish={handleSplashFinish} appIsReady={appIsReady} />;
-  }
-
-  return (
-    <LanguageProvider>
-      <AuthProvider>
-        <NotificationProvider>
-          <ToastProvider>
-            <WalletProvider>
-              <TabNavigator />
-            </WalletProvider>
-          </ToastProvider>
-        </NotificationProvider>
-      </AuthProvider>
-    </LanguageProvider>
-  )
+         return (
+           <LanguageProvider>
+             <AuthProvider>
+               <NotificationProvider>
+                 <ToastProvider>
+                   <AppContent />
+                 </ToastProvider>
+               </NotificationProvider>
+             </AuthProvider>
+           </LanguageProvider>
+         )
 }

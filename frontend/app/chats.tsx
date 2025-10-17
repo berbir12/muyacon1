@@ -13,7 +13,7 @@ import {
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter, useFocusEffect } from 'expo-router'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/SimpleAuthContext'
 import { ChatService, Chat } from '../services/ChatService'
 import Colors from '../constants/Colors'
 
@@ -423,15 +423,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.neutral[500],
     textAlign: 'center',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: 16,
-    color: Colors.neutral[600],
-    marginTop: 10,
   },
 })

@@ -54,35 +54,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 })
 
 // Database types
-export interface UserProfile {
-  id: string
-  username: string
-  full_name: string
-  avatar_url?: string
-  role: 'customer' | 'tasker' | 'both'
-  created_at: string
-  updated_at?: string
-  // Personal information
-  phone?: string
-  bio?: string
-  city?: string
-  state?: string
-  zip_code?: string
-  location?: string
-  // Professional information (for taskers)
-  available?: boolean
-  hourly_rate?: number
-  skills?: string[]
-  experience_years?: number
-  certifications?: string[]
-  languages?: string[]
-  response_time?: string
-  portfolio_images?: string[]
-  // Statistics and ratings
-  rating_average?: number
-  rating_count?: number
-  completed_tasks?: number
-}
+export { SimpleUserProfile } from '../types/SimpleUserProfile';
 
 export interface ServiceCategory {
   id: string

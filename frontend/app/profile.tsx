@@ -10,12 +10,18 @@ import {
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/SimpleAuthContext'
 import Colors from '../constants/Colors'
 
 export default function Profile() {
   const { user, logout, switchMode, isAuthenticated, isLoading } = useAuth()
   const router = useRouter()
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.replace('/auth')
+    }
+  }, [isAuthenticated, isLoading])
 
   // Show loading while auth is being determined
   if (isLoading) {
@@ -37,12 +43,6 @@ export default function Profile() {
       </SafeAreaView>
     )
   }
-
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.replace('/auth')
-    }
-  }, [isAuthenticated, isLoading])
 
   const handleLogout = async () => {
     Alert.alert(
@@ -189,7 +189,7 @@ export default function Profile() {
               <Ionicons name="person" size={32} color={Colors.primary[500]} />
             </View>
           <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>{user?.name || 'Guest User'}</Text>
+              <Text style={styles.profileName}>{user?.name || user?.username || 'Guest User'}</Text>
               <Text style={styles.profilePhone}>{user?.phone || '+251 9X XXX XXXX'}</Text>
               <View style={styles.modeContainer}>
                 <View style={[styles.modeBadge, { backgroundColor: Colors.primary[100] }]}>

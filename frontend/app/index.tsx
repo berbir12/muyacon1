@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/SimpleAuthContext'
 import { SimpleNotificationService } from '../services/SimpleNotificationService'
 import { TaskService, Task } from '../services/TaskService'
 import Colors from '../constants/Colors'
@@ -79,7 +79,7 @@ const featuredServices = [
 ]
 
 export default function Index() {
-  const { isAuthenticated, isLoading, user } = useAuth()
+  const { isAuthenticated, loading: isLoading, user } = useAuth()
   const [unreadCount, setUnreadCount] = useState(0)
   const [featuredTasks, setFeaturedTasks] = useState<Task[]>([])
   const [recentTasks, setRecentTasks] = useState<Task[]>([])
@@ -183,22 +183,24 @@ export default function Index() {
             <View style={styles.greetingContainer}>
               <Text style={styles.greeting}>Good {getGreeting()}</Text>
               <Text style={styles.userName}>
-                {user ? `Welcome back, ${user.name.split(' ')[0]}!` : 'Welcome to Muyacon!'}
+                {user ? `Welcome back, ${user.full_name.split(' ')[0]}!` : 'Welcome to Muyacon!'}
               </Text>
             </View>
-            <TouchableOpacity 
-              style={styles.notificationButton}
-              onPress={() => router.push('/notifications')}
-            >
-              <Ionicons name="notifications-outline" size={22} color={Colors.neutral[600]} />
-              {unreadCount > 0 && (
-                <View style={styles.notificationBadge}>
-                  <Text style={styles.notificationCount}>
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
+            <View style={styles.headerButtons}>
+              <TouchableOpacity 
+                style={styles.notificationButton}
+                onPress={() => router.push('/notifications')}
+              >
+                <Ionicons name="notifications-outline" size={22} color={Colors.neutral[600]} />
+                {unreadCount > 0 && (
+                  <View style={styles.notificationBadge}>
+                    <Text style={styles.notificationCount}>
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Search Bar */}
@@ -288,7 +290,7 @@ export default function Index() {
           {loadingTasks ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="small" color={Colors.primary[500]} />
-              <Text style={styles.loadingText}>Loading tasks...</Text>
+              <Text style={styles.loadingTextSmall}>Loading tasks...</Text>
             </View>
           ) : (
             <ScrollView 
@@ -301,7 +303,10 @@ export default function Index() {
                 <TouchableOpacity 
                   key={task.id} 
                   style={styles.serviceCard}
-                  onPress={() => router.push(`/task-detail?id=${task.id}`)}
+                  onPress={() => router.push({
+                    pathname: '/task-detail',
+                    params: { taskId: task.id }
+                  })}
                 >
                   {/* Task Image */}
         {task.photos && task.photos.length > 0 ? (
@@ -388,6 +393,7 @@ export default function Index() {
             ))}
           </View>
         </View>
+
 
         {/* Bottom Spacing */}
         <View style={styles.bottomSpacing} />
@@ -710,7 +716,7 @@ const styles = StyleSheet.create({
     color: Colors.neutral[500],
     textAlign: 'center',
   },
-  loadingText: {
+  loadingTextSmall: {
     fontSize: 12,
     color: Colors.neutral[500],
     marginTop: 4,
@@ -778,5 +784,10 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: Colors.primary[600],
     fontWeight: '500',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
 })

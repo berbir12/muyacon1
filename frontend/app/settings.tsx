@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/SimpleAuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import Colors from '../constants/Colors'
 import { SettingsService, type AppSettings } from '../services/SettingsService'
@@ -126,10 +126,10 @@ export default function Settings() {
           showArrow: true
         },
         {
-          icon: 'card-outline',
-          title: 'Payment Methods',
-          subtitle: 'Manage your payment options',
-          onPress: () => router.push('/payment-methods'),
+          icon: 'notifications-outline',
+          title: 'Notifications',
+          subtitle: 'Manage your notification preferences',
+          onPress: () => router.push('/notifications'),
           showArrow: true
         },
         {

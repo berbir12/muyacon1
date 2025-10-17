@@ -12,7 +12,7 @@ import {
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/SimpleAuthContext'
 import { BookingService, Booking } from '../services/BookingService'
 import Colors from '../constants/Colors'
 
@@ -22,6 +22,8 @@ const statusColors = {
   in_progress: Colors.primary[500],
   completed: Colors.success[500],
   cancelled: Colors.error[500],
+  open: Colors.primary[500],
+  assigned: Colors.primary[500],
 }
 
 const statusLabels = {
@@ -30,6 +32,8 @@ const statusLabels = {
   in_progress: 'In Progress',
   completed: 'Completed',
   cancelled: 'Cancelled',
+  open: 'Open',
+  assigned: 'Assigned',
 }
 
 const taskStatusLabels = {
@@ -41,7 +45,7 @@ const taskStatusLabels = {
 }
 
 export default function Bookings() {
-  const { user, isAuthenticated, isLoading } = useAuth()
+  const { user, isAuthenticated, loading: isLoading } = useAuth()
   const router = useRouter()
   const [selectedStatus, setSelectedStatus] = useState('all')
   const [bookings, setBookings] = useState<Booking[]>([])
@@ -53,6 +57,14 @@ export default function Bookings() {
       router.replace('/auth')
     }
   }, [isAuthenticated, isLoading])
+
+  const statuses = ['all', 'pending', 'confirmed', 'in_progress', 'completed', 'cancelled']
+
+  useEffect(() => {
+    if (user && isAuthenticated) {
+      loadBookings()
+    }
+  }, [user, isAuthenticated])
 
   // Show loading while auth is being determined
   if (isLoading) {
@@ -69,12 +81,6 @@ export default function Bookings() {
   if (!isAuthenticated) {
     return null
   }
-
-  const statuses = ['all', 'pending', 'confirmed', 'in_progress', 'completed', 'cancelled']
-
-  useEffect(() => {
-    loadBookings()
-  }, [user])
 
   const loadBookings = async (isRefresh = false) => {
     if (!user) return
@@ -176,7 +182,7 @@ export default function Bookings() {
           <View style={styles.headerText}>
             <Text style={styles.headerTitle}>My Bookings</Text>
             <Text style={styles.headerSubtitle}>
-              {user ? `Manage your ${user.currentMode} bookings` : 'Manage your bookings'}
+              {user ? `Manage your ${user.current_mode} bookings` : 'Manage your bookings'}
             </Text>
           </View>
         </View>
@@ -241,7 +247,7 @@ export default function Bookings() {
                 <View style={styles.bookingInfo}>
                   <Text style={styles.bookingTitle}>{booking.task_title || booking.service_name}</Text>
                   <Text style={styles.bookingCustomer}>
-                    {user?.currentMode === 'customer' ? `Tasker: ${booking.technician_name}` : `Customer: ${booking.customer_name}`}
+                    {user?.current_mode === 'customer' ? `Tasker: ${booking.technician_name}` : `Customer: ${booking.customer_name}`}
             </Text>
           </View>
                 <View style={styles.statusContainer}>
@@ -302,7 +308,7 @@ export default function Bookings() {
                   </TouchableOpacity>
                 )}
 
-                {booking.status === 'pending' && user?.currentMode === 'tasker' && (
+                {booking.status === 'pending' && user?.current_mode === 'tasker' && (
                   <>
                     <TouchableOpacity
                       style={[styles.actionButton, styles.acceptButton]}
@@ -339,7 +345,7 @@ export default function Bookings() {
                   </>
                 )}
 
-                {booking.status === 'confirmed' && user?.currentMode === 'tasker' && (
+                {booking.status === 'confirmed' && user?.current_mode === 'tasker' && (
                   <TouchableOpacity
                     style={[styles.actionButton, styles.startButton]}
                     onPress={() => {
@@ -358,7 +364,7 @@ export default function Bookings() {
                   </TouchableOpacity>
                 )}
                 
-                {booking.status === 'in_progress' && user?.currentMode === 'tasker' && (
+                {booking.status === 'in_progress' && user?.current_mode === 'tasker' && (
                   <TouchableOpacity
                     style={[styles.actionButton, styles.completeButton]}
                     onPress={() => {
@@ -378,7 +384,7 @@ export default function Bookings() {
                 )}
 
                 {/* Customer actions */}
-                {booking.status === 'confirmed' && user?.currentMode === 'customer' && (
+                {booking.status === 'confirmed' && user?.current_mode === 'customer' && (
                   <TouchableOpacity
                     style={[styles.actionButton, styles.cancelButton]}
                     onPress={() => {
@@ -700,15 +706,5 @@ const styles = StyleSheet.create({
     color: Colors.neutral[500],
     textAlign: 'center',
     paddingHorizontal: 40,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: 16,
-    color: Colors.neutral[600],
-    marginTop: 10,
   },
 })

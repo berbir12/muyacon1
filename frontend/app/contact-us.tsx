@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/SimpleAuthContext'
 import Colors from '../constants/Colors'
 
 interface ContactMethod {
@@ -65,7 +65,6 @@ const CONTACT_METHODS: ContactMethod[] = [
 ]
 
 export default function ContactUs() {
-  const { user } = useAuth()
   const router = useRouter()
   const [message, setMessage] = useState('')
   const [subject, setSubject] = useState('')
@@ -101,7 +100,7 @@ export default function ContactUs() {
           await Linking.openURL(telegramUrl)
           break
       }
-    } catch (error) {
+    } catch {
       Alert.alert('Error', 'Could not open the selected contact method')
     }
   }

@@ -79,7 +79,7 @@ export class ImageService {
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: options?.allowsEditing ?? true,
+        allowsEditing: options?.allowsMultipleSelection ? false : (options?.allowsEditing ?? true),
         aspect: options?.aspect ?? [4, 3],
         quality: options?.quality ?? 0.8,
         allowsMultipleSelection: options?.allowsMultipleSelection ?? false,
@@ -158,5 +158,40 @@ export class ImageService {
     quality?: number
   }): Promise<string | null> {
     return await this.takePhoto(options)
+  }
+
+  // Upload image to storage
+  static async uploadImage(fileUri: string, folder: string = 'images'): Promise<{ success: boolean; url?: string; error?: string }> {
+    try {
+      // For now, return the local URI as the URL
+      // In a real app, you would upload to cloud storage (AWS S3, Cloudinary, etc.)
+      return {
+        success: true,
+        url: fileUri
+      }
+    } catch (error) {
+      console.error('Error uploading image:', error)
+      return {
+        success: false,
+        error: 'Failed to upload image'
+      }
+    }
+  }
+
+  // Get file info
+  static async getFileInfo(fileUri: string): Promise<{ type: string; size: number }> {
+    try {
+      // Basic file info - in a real app, you'd get this from the file system
+      return {
+        type: 'image/jpeg',
+        size: 0
+      }
+    } catch (error) {
+      console.error('Error getting file info:', error)
+      return {
+        type: 'image/jpeg',
+        size: 0
+      }
+    }
   }
 }

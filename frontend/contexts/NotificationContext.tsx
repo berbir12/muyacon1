@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { useAuth } from './AuthContext'
+import { useAuth } from './SimpleAuthContext'
 import { UnifiedNotificationService, Notification } from '../services/UnifiedNotificationService'
 
 interface NotificationContextType {

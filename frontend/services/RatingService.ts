@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase'
-import { ErrorHandlingService } from './ErrorHandlingService'
+import { handleError } from '../utils/errorHandler'
 
 export interface Review {
   id: string
@@ -130,7 +130,7 @@ export class RatingService {
         task_title: data.task?.title
       }
     } catch (error) {
-      const appError = ErrorHandlingService.handleApiError(error, 'createReview')
+      const appError = handleError(error, 'createReview')
       console.error('Error creating review:', appError)
       return null
     }
@@ -178,7 +178,7 @@ export class RatingService {
         task_title: data.task?.title
       }
     } catch (error) {
-      const appError = ErrorHandlingService.handleApiError(error, 'getReviewByTaskAndUsers')
+      const appError = handleError(error, 'getReviewByTaskAndUsers')
       console.error('Error getting review:', appError)
       return null
     }
@@ -227,7 +227,7 @@ export class RatingService {
         task_title: review.task?.title
       }))
     } catch (error) {
-      const appError = ErrorHandlingService.handleApiError(error, 'getUserReviews')
+      const appError = handleError(error, 'getUserReviews')
       console.error('Error getting user reviews:', appError)
       return []
     }
@@ -292,7 +292,7 @@ export class RatingService {
         task_title: review.task?.title
       }))
     } catch (error) {
-      const appError = ErrorHandlingService.handleApiError(error, 'getReviewsWithFilters')
+      const appError = handleError(error, 'getReviewsWithFilters')
       console.error('Error getting filtered reviews:', appError)
       return []
     }
@@ -341,7 +341,7 @@ export class RatingService {
         recent_reviews: recentReviews
       }
     } catch (error) {
-      const appError = ErrorHandlingService.handleApiError(error, 'getUserRatingSummary')
+      const appError = handleError(error, 'getUserRatingSummary')
       console.error('Error getting rating summary:', appError)
       return null
     }
@@ -367,7 +367,7 @@ export class RatingService {
       if (error) throw error
       return true
     } catch (error) {
-      const appError = ErrorHandlingService.handleApiError(error, 'updateUserRatingSummary')
+      const appError = handleError(error, 'updateUserRatingSummary')
       console.error('Error updating rating summary:', appError)
       return false
     }
@@ -403,7 +403,7 @@ export class RatingService {
         avatar_url: item.profile?.avatar_url
       }))
     } catch (error) {
-      const appError = ErrorHandlingService.handleApiError(error, 'getTopRatedUsers')
+      const appError = handleError(error, 'getTopRatedUsers')
       console.error('Error getting top-rated users:', appError)
       return []
     }
@@ -460,7 +460,7 @@ export class RatingService {
         task_title: data.task?.title
       }
     } catch (error) {
-      const appError = ErrorHandlingService.handleApiError(error, 'updateReview')
+      const appError = handleError(error, 'updateReview')
       console.error('Error updating review:', appError)
       return null
     }
@@ -493,7 +493,7 @@ export class RatingService {
 
       return true
     } catch (error) {
-      const appError = ErrorHandlingService.handleApiError(error, 'deleteReview')
+      const appError = handleError(error, 'deleteReview')
       console.error('Error deleting review:', appError)
       return false
     }
@@ -530,7 +530,7 @@ export class RatingService {
         task_title: review.task?.title
       }))
     } catch (error) {
-      const appError = ErrorHandlingService.handleApiError(error, 'getTaskReviews')
+      const appError = handleError(error, 'getTaskReviews')
       console.error('Error getting task reviews:', appError)
       return []
     }
@@ -585,7 +585,7 @@ export class RatingService {
 
       return { canReview: true }
     } catch (error) {
-      const appError = ErrorHandlingService.handleApiError(error, 'canUserReview')
+      const appError = handleError(error, 'canUserReview')
       console.error('Error checking review permissions:', appError)
       return { canReview: false, reason: 'Error checking permissions' }
     }

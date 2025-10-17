@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase'
-import { ErrorHandlingService } from './ErrorHandlingService'
+import { handleError } from '../utils/errorHandler'
 
 export interface SearchFilters {
   query?: string
@@ -110,7 +110,7 @@ export class SearchService {
         filters
       }
     } catch (error) {
-      const appError = ErrorHandlingService.handleApiError(error, 'searchTasks')
+      const appError = handleError(error, 'searchTasks')
       console.error('Error searching tasks:', appError)
       return {
         tasks: [],
@@ -176,7 +176,7 @@ export class SearchService {
 
       return suggestions.slice(0, limit)
     } catch (error) {
-      const appError = ErrorHandlingService.handleApiError(error, 'getSearchSuggestions')
+      const appError = handleError(error, 'getSearchSuggestions')
       console.error('Error getting search suggestions:', appError)
       return []
     }
@@ -200,7 +200,7 @@ export class SearchService {
         'maintenance'
       ].slice(0, limit)
     } catch (error) {
-      const appError = ErrorHandlingService.handleApiError(error, 'getPopularSearches')
+      const appError = handleError(error, 'getPopularSearches')
       console.error('Error getting popular searches:', appError)
       return []
     }
@@ -256,7 +256,7 @@ export class SearchService {
         statuses
       }
     } catch (error) {
-      const appError = ErrorHandlingService.handleApiError(error, 'getSearchFilters')
+      const appError = handleError(error, 'getSearchFilters')
       console.error('Error getting search filters:', appError)
       return {
         categories: [],
@@ -284,7 +284,7 @@ export class SearchService {
       // For now, return empty array
       return []
     } catch (error) {
-      const appError = ErrorHandlingService.handleApiError(error, 'getSearchHistory')
+      const appError = handleError(error, 'getSearchHistory')
       console.error('Error getting search history:', appError)
       return []
     }
@@ -379,7 +379,7 @@ export class SearchService {
         filters: criteria as SearchFilters
       }
     } catch (error) {
-      const appError = ErrorHandlingService.handleApiError(error, 'advancedSearch')
+      const appError = handleError(error, 'advancedSearch')
       console.error('Error in advanced search:', appError)
       return {
         tasks: [],

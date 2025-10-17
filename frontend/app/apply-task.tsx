@@ -15,7 +15,7 @@ import {
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/SimpleAuthContext'
 import { TaskApplicationService } from '../services/TaskApplicationService'
 import Colors from '../constants/Colors'
 
@@ -211,7 +211,7 @@ export default function ApplyTask() {
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Cover Letter *</Text>
                 <Text style={styles.helperText}>
-                  Tell the customer why you're the right person for this task
+                  Tell the customer why you&apos;re the right person for this task
                 </Text>
                 <View style={styles.inputContainer}>
                   <Ionicons name="document-text-outline" size={20} color={Colors.neutral[400]} />

@@ -15,7 +15,7 @@ import {
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/SimpleAuthContext'
 import { RatingService } from '../services/RatingService'
 import RatingStars from '../components/RatingStars'
 import EnhancedRatingStars from '../components/EnhancedRatingStars'

@@ -13,7 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import { useNotifications } from '../contexts/NotificationContext'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/SimpleAuthContext'
 import Colors from '../constants/Colors'
 
 export default function Notifications() {
@@ -200,7 +200,7 @@ export default function Notifications() {
             <Ionicons name="notifications-off-outline" size={64} color={Colors.neutral[400]} />
             <Text style={styles.emptyTitle}>No Notifications</Text>
             <Text style={styles.emptySubtitle}>
-              You'll see notifications about tasks, messages, and updates here.
+              You&apos;ll see notifications about tasks, messages, and updates here.
             </Text>
           </View>
         ) : (

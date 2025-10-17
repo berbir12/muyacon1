@@ -1,5 +1,5 @@
 import * as Location from 'expo-location'
-import { ErrorHandlingService } from './ErrorHandlingService'
+import { handleError } from '../utils/errorHandler'
 
 export interface LocationData {
   latitude: number
@@ -65,7 +65,7 @@ export class LocationService {
         status
       }
     } catch (error) {
-      const appError = ErrorHandlingService.handleApiError(error, 'requestPermissions')
+      const appError = handleError(error, 'requestPermissions')
       console.error('Error requesting location permissions:', appError)
       return {
         granted: false,
@@ -86,7 +86,7 @@ export class LocationService {
         status
       }
     } catch (error) {
-      const appError = ErrorHandlingService.handleApiError(error, 'checkPermissions')
+      const appError = handleError(error, 'checkPermissions')
       console.error('Error checking location permissions:', appError)
       return {
         granted: false,
@@ -123,7 +123,7 @@ export class LocationService {
       this.currentLocation = locationData
       return locationData
     } catch (error) {
-      const appError = ErrorHandlingService.handleApiError(error, 'getCurrentLocation')
+      const appError = handleError(error, 'getCurrentLocation')
       console.error('Error getting current location:', appError)
       return null
     }
@@ -169,7 +169,7 @@ export class LocationService {
 
       return true
     } catch (error) {
-      const appError = ErrorHandlingService.handleApiError(error, 'watchLocation')
+      const appError = handleError(error, 'watchLocation')
       console.error('Error watching location:', appError)
       onError?.(appError)
       return false
@@ -214,7 +214,7 @@ export class LocationService {
         ].filter(Boolean).join(', ')
       }
     } catch (error) {
-      const appError = ErrorHandlingService.handleApiError(error, 'reverseGeocode')
+      const appError = handleError(error, 'reverseGeocode')
       console.error('Error reverse geocoding:', appError)
       return null
     }
@@ -234,7 +234,7 @@ export class LocationService {
         timestamp: Date.now()
       }
     } catch (error) {
-      const appError = ErrorHandlingService.handleApiError(error, 'geocode')
+      const appError = handleError(error, 'geocode')
       console.error('Error geocoding address:', appError)
       return null
     }
@@ -362,7 +362,7 @@ export class LocationService {
 
       return mockTasks
     } catch (error) {
-      const appError = ErrorHandlingService.handleApiError(error, 'getNearbyTasks')
+      const appError = handleError(error, 'getNearbyTasks')
       console.error('Error getting nearby tasks:', appError)
       return []
     }
@@ -399,7 +399,7 @@ export class LocationService {
 
       return filteredTasks
     } catch (error) {
-      const appError = ErrorHandlingService.handleApiError(error, 'getLocationRecommendations')
+      const appError = handleError(error, 'getLocationRecommendations')
       console.error('Error getting location recommendations:', appError)
       return []
     }
@@ -442,7 +442,7 @@ export class LocationService {
         distance: Math.round(distance * 1000) // Distance in meters
       }
     } catch (error) {
-      const appError = ErrorHandlingService.handleApiError(error, 'getEstimatedTravelTime')
+      const appError = handleError(error, 'getEstimatedTravelTime')
       console.error('Error getting estimated travel time:', appError)
       return null
     }
