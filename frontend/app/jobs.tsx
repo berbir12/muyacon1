@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { useRouter, useFocusEffect } from 'expo-router'
 import { useAuth } from '../contexts/SimpleAuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
-import { TaskService, Task } from '../services/TaskService'
+import { TaskService, Task } from '../services/TaskServiceFixed'
 import { TaskApplicationService } from '../services/TaskApplicationService'
 import { SearchService, SearchFilters } from '../services/SearchService'
 import AdvancedSearch from '../components/AdvancedSearch'
@@ -83,10 +83,7 @@ export default function Jobs() {
   useFocusEffect(
     useCallback(() => {
       if (isAuthenticated && user) {
-        loadTasks()
-        if (activeTab === 'available' && (user.role === 'tasker' || user.role === 'both')) {
-          checkAppliedTasks(tasks)
-        }
+        loadTasks() // This will call checkAppliedTasks internally
       }
     }, [isAuthenticated, user, activeTab])
   )
@@ -113,16 +110,16 @@ export default function Jobs() {
       return
     }
     
-    console.log('Jobs: Loading tasks for user:', user.id, user.name, 'activeTab:', activeTab)
+    console.log('Jobs: Loading tasks for user:', user.id, 'user_id:', user.user_id, user.name, 'activeTab:', activeTab)
     
     setLoading(true)
     try {
       let fetchedTasks: Task[] = []
       
       if (activeTab === 'available') {
-        fetchedTasks = await TaskService.getAvailableTasks(user.id)
+        fetchedTasks = await TaskService.getAvailableTasks(user.user_id)
       } else {
-        fetchedTasks = await TaskService.getMyTasks(user.id)
+        fetchedTasks = await TaskService.getMyTasks(user.user_id)
       }
       
       console.log('Jobs: Loaded tasks:', fetchedTasks.length)
@@ -143,12 +140,14 @@ export default function Jobs() {
   const checkAppliedTasks = async (tasks: Task[]) => {
     if (!user) return
 
+    console.log('Jobs: Checking applied tasks for', tasks.length, 'tasks')
     const appliedSet = new Set<string>()
     
     // Check each task to see if user has applied
     for (const task of tasks) {
       try {
-        const hasApplied = await TaskApplicationService.hasUserAppliedToTask(user.id, task.id)
+        const hasApplied = await TaskApplicationService.hasUserAppliedToTask(user.user_id, task.id)
+        console.log(`Jobs: Task ${task.id} - hasApplied: ${hasApplied}`)
         if (hasApplied) {
           appliedSet.add(task.id)
         }
@@ -157,6 +156,7 @@ export default function Jobs() {
       }
     }
     
+    console.log('Jobs: Applied tasks set:', Array.from(appliedSet))
     setAppliedTasks(appliedSet)
   }
 
@@ -504,18 +504,6 @@ export default function Jobs() {
           </View>
         )}
 
-        {/* Application Status Banner */}
-        {user && user.tasker_application_status === 'pending' && activeTab === 'available' && (
-          <View style={styles.statusBanner}>
-            <View style={styles.statusBannerContent}>
-              <Ionicons name="time" size={24} color={Colors.warning[500]} />
-              <View style={styles.statusBannerText}>
-                <Text style={styles.statusBannerTitle}>Application Under Review</Text>
-                <Text style={styles.statusBannerSubtitle}>Your tasker application is being reviewed. You&apos;ll be notified once approved.</Text>
-              </View>
-            </View>
-          </View>
-        )}
 
       {/* Tab Navigation */}
       <View style={styles.tabContainer}>
@@ -691,7 +679,7 @@ export default function Jobs() {
                 <TouchableOpacity 
                   style={[
                     styles.actionButton,
-                    appliedTasks.has(task.id) && styles.appliedButton
+                    activeTab === 'available' && appliedTasks.has(task.id) && styles.appliedButton
                   ]}
                   onPress={() => {
                     if (activeTab === 'available') {
@@ -700,16 +688,21 @@ export default function Jobs() {
                       } else {
                         handleApplyToTask(task.id)
                       }
+                    } else {
+                      router.push({
+                        pathname: '/task-applications',
+                        params: { taskId: task.id }
+                      })
                     }
                   }}
                 >
                   <Text style={[
                     styles.actionButtonText,
-                    appliedTasks.has(task.id) && styles.appliedButtonText
+                    activeTab === 'available' && appliedTasks.has(task.id) && styles.appliedButtonText
                   ]}>
                     {activeTab === 'available' 
                       ? (appliedTasks.has(task.id) ? 'Already Applied' : 'Apply')
-                      : 'View'
+                      : 'View Applications'
                     }
                   </Text>
                 </TouchableOpacity>
@@ -1159,32 +1152,5 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 12,
     fontWeight: '600',
-  },
-  statusBanner: {
-    marginHorizontal: 20,
-    marginTop: 16,
-    backgroundColor: Colors.warning[50],
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.warning[200],
-  },
-  statusBannerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    gap: 12,
-  },
-  statusBannerText: {
-    flex: 1,
-  },
-  statusBannerTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.warning[700],
-    marginBottom: 2,
-  },
-  statusBannerSubtitle: {
-    fontSize: 14,
-    color: Colors.warning[600],
   },
 })

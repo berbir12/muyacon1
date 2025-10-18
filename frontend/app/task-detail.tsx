@@ -8,12 +8,16 @@ import {
   ScrollView, 
   ActivityIndicator, 
   Alert,
-  Dimensions 
+  Dimensions,
+  Image,
+  FlatList,
+  Modal,
+  StatusBar
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useAuth } from '../contexts/SimpleAuthContext'
-import { TaskService, Task } from '../services/TaskService'
+import { TaskService, Task } from '../services/TaskServiceFixed'
 import { TaskApplicationService } from '../services/TaskApplicationService'
 import TaskStatusManager from '../components/TaskStatusManager'
 import Colors from '../constants/Colors'
@@ -28,6 +32,8 @@ export default function TaskDetail() {
   const [loading, setLoading] = useState(true)
   const [hasApplied, setHasApplied] = useState(false)
   const [applying, setApplying] = useState(false)
+  const [imageModalVisible, setImageModalVisible] = useState(false)
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0)
 
   useEffect(() => {
     // Only redirect to auth if we're sure the user is not authenticated
@@ -58,6 +64,15 @@ export default function TaskDetail() {
     return null
   }
 
+  const handleImagePress = (index: number) => {
+    setSelectedImageIndex(index)
+    setImageModalVisible(true)
+  }
+
+  const closeImageModal = () => {
+    setImageModalVisible(false)
+  }
+
   const loadTaskDetails = async () => {
     if (!taskId || !user) return
 
@@ -70,7 +85,7 @@ export default function TaskDetail() {
 
       // Check if user has already applied (only for taskers)
       if (user.role === 'tasker' || user.role === 'both') {
-        const applied = await TaskApplicationService.hasUserAppliedToTask(user.id, taskId as string)
+        const applied = await TaskApplicationService.hasUserAppliedToTask(user.user_id, taskId as string)
         setHasApplied(applied)
       }
     } catch (error) {
@@ -140,7 +155,7 @@ export default function TaskDetail() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.replace('/jobs')} style={styles.backButton}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color={Colors.neutral[900]} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Task Details</Text>
@@ -158,7 +173,7 @@ export default function TaskDetail() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.replace('/jobs')} style={styles.backButton}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color={Colors.neutral[900]} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Task Details</Text>
@@ -176,7 +191,7 @@ export default function TaskDetail() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.replace('/jobs')} style={styles.backButton}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={Colors.neutral[900]} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Task Details</Text>
@@ -203,6 +218,33 @@ export default function TaskDetail() {
           </View>
           <Text style={styles.taskPrice}>${task.budget}</Text>
         </View>
+
+        {/* Task Images */}
+        {(task.images && task.images.length > 0) || (task.photos && task.photos.length > 0) ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Images</Text>
+            <FlatList
+              data={task.images || task.photos || []}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(item, index) => `${task.id}-image-${index}`}
+              renderItem={({ item, index }) => (
+                <TouchableOpacity 
+                  style={styles.imageContainer}
+                  onPress={() => handleImagePress(index)}
+                  activeOpacity={0.8}
+                >
+                  <Image
+                    source={{ uri: item }}
+                    style={styles.taskImage}
+                    resizeMode="cover"
+                  />
+                </TouchableOpacity>
+              )}
+              contentContainerStyle={styles.imagesList}
+            />
+          </View>
+        ) : null}
 
         {/* Task Description */}
         <View style={styles.section}>
@@ -316,6 +358,59 @@ export default function TaskDetail() {
           )}
         </TouchableOpacity>
       </View>
+
+      {/* Image Viewer Modal */}
+      <Modal
+        visible={imageModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={closeImageModal}
+      >
+        <View style={styles.modalContainer}>
+          <StatusBar backgroundColor="rgba(0,0,0,0.9)" barStyle="light-content" />
+          
+          {/* Header */}
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={closeImageModal} style={styles.closeButton}>
+              <Ionicons name="close" size={24} color="#fff" />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>
+              {selectedImageIndex + 1} of {(task?.images || task?.photos || []).length}
+            </Text>
+            <View style={styles.placeholder} />
+          </View>
+
+          {/* Image */}
+          <View style={styles.modalImageContainer}>
+            <Image
+              source={{ uri: (task?.images || task?.photos || [])[selectedImageIndex] }}
+              style={styles.modalImage}
+              resizeMode="contain"
+            />
+          </View>
+
+          {/* Navigation */}
+          {(task?.images || task?.photos || []).length > 1 && (
+            <View style={styles.modalNavigation}>
+              <TouchableOpacity
+                onPress={() => setSelectedImageIndex(Math.max(0, selectedImageIndex - 1))}
+                disabled={selectedImageIndex === 0}
+                style={[styles.navButton, selectedImageIndex === 0 && styles.navButtonDisabled]}
+              >
+                <Ionicons name="chevron-back" size={24} color={selectedImageIndex === 0 ? "#666" : "#fff"} />
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                onPress={() => setSelectedImageIndex(Math.min((task?.images || task?.photos || []).length - 1, selectedImageIndex + 1))}
+                disabled={selectedImageIndex === (task?.images || task?.photos || []).length - 1}
+                style={[styles.navButton, selectedImageIndex === (task?.images || task?.photos || []).length - 1 && styles.navButtonDisabled]}
+              >
+                <Ionicons name="chevron-forward" size={24} color={selectedImageIndex === (task?.images || task?.photos || []).length - 1 ? "#666" : "#fff"} />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </Modal>
     </SafeAreaView>
   )
 }
@@ -484,5 +579,75 @@ const styles = StyleSheet.create({
   },
   appliedButtonText: {
     color: Colors.neutral[600],
+  },
+  imagesList: {
+    paddingHorizontal: 4,
+  },
+  imageContainer: {
+    marginRight: 12,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: Colors.neutral[100],
+  },
+  taskImage: {
+    width: 120,
+    height: 120,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalHeader: {
+    position: 'absolute',
+    top: 50,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    zIndex: 1,
+  },
+  closeButton: {
+    padding: 8,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 20,
+  },
+  modalTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalImageContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    paddingHorizontal: 20,
+  },
+  modalImage: {
+    width: '100%',
+    height: '80%',
+    maxWidth: 400,
+    maxHeight: 600,
+  },
+  modalNavigation: {
+    position: 'absolute',
+    bottom: 50,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 40,
+  },
+  navButton: {
+    padding: 12,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 25,
+  },
+  navButtonDisabled: {
+    opacity: 0.3,
   },
 })

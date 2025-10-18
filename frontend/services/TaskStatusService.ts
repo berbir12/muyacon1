@@ -155,21 +155,21 @@ export class TaskStatusService {
         throw updateError
       }
 
-      // Create status update record
-      const { error: statusError } = await supabase
-        .from('task_status_updates')
-        .insert({
-          task_id: taskId,
-          status: newStatus,
-          updated_by: updatedBy,
-          reason,
-          notes
-        })
+      // Create status update record (table doesn't exist yet)
+      // const { error: statusError } = await supabase
+      //   .from('task_status_updates')
+      //   .insert({
+      //     task_id: taskId,
+      //     status: newStatus,
+      //     updated_by: updatedBy,
+      //     reason,
+      //     notes
+      //   })
 
-      if (statusError) {
-        console.error('Error creating status update record:', statusError)
-        // Don't throw here as the main update succeeded
-      }
+      // if (statusError) {
+      //   console.error('Error creating status update record:', statusError)
+      //   // Don't throw here as the main update succeeded
+      // }
 
       // Send notifications based on status change
       await this.sendStatusNotifications(task, newStatus, updatedBy)
@@ -235,27 +235,31 @@ export class TaskStatusService {
     }
   }
 
-  // Get task status history
+  // Get task status history (table doesn't exist yet)
   static async getTaskStatusHistory(taskId: string): Promise<TaskStatusUpdate[]> {
     try {
-      const { data, error } = await supabase
-        .from('task_status_updates')
-        .select(`
-          *,
-          profiles!task_status_updates_updated_by_fkey(full_name, avatar_url)
-        `)
-        .eq('task_id', taskId)
-        .order('created_at', { ascending: false })
+      // Return empty array since table doesn't exist
+      console.log('Task status history table not implemented yet')
+      return []
+      
+      // const { data, error } = await supabase
+      //   .from('task_status_updates')
+      //   .select(`
+      //     *,
+      //     profiles!task_status_updates_updated_by_fkey(full_name, avatar_url)
+      //   `)
+      //   .eq('task_id', taskId)
+      //   .order('created_at', { ascending: false })
 
-      if (error) {
-        throw error
-      }
+      // if (error) {
+      //   throw error
+      // }
 
-      return data?.map(update => ({
-        ...update,
-        updated_by_name: update.profiles?.full_name,
-        updated_by_avatar: update.profiles?.avatar_url
-      })) || []
+      // return data?.map(update => ({
+      //   ...update,
+      //   updated_by_name: update.profiles?.full_name,
+      //   updated_by_avatar: update.profiles?.avatar_url
+      // })) || []
     } catch (error) {
       console.error('Error getting task status history:', error)
       return []

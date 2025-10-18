@@ -91,12 +91,14 @@ export default function Auth() {
     }
 
     const formattedPhone = cleanPhoneNumber(phoneNumber)
+    
     if (formattedPhone.length !== 13) {
       Alert.alert('Error', 'Please enter a valid 9-digit phone number (e.g., 0912345678)')
       return
     }
 
     setLoading(true)
+    
     try {
       const result = await sendVerificationCode(formattedPhone, isSignUp, fullName, username)
       
@@ -108,6 +110,7 @@ export default function Auth() {
         Alert.alert('Error', result.message)
       }
     } catch (error: any) {
+      console.error('Exception in handleSendCode:', error);
       Alert.alert('Error', error.message || 'Failed to send verification code. Please try again.')
     } finally {
       setLoading(false)

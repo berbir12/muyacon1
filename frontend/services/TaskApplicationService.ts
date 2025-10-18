@@ -9,7 +9,6 @@ export interface TaskApplication {
   proposed_price: number
   estimated_time: number
   message: string
-  availability_date: string
   status: 'pending' | 'accepted' | 'rejected' | 'withdrawn'
   created_at: string
   updated_at: string
@@ -24,9 +23,16 @@ export class TaskApplicationService {
   // Create a new application
   static async createApplication(applicationData: Omit<TaskApplication, 'id' | 'created_at' | 'updated_at' | 'tasker_name' | 'tasker_avatar' | 'task_title' | 'customer_name'>): Promise<TaskApplication | null> {
     try {
+      // Add user_id field to match the database schema
+      // user_id should reference auth.users.id, not profiles.id
+      const applicationWithUserId = {
+        ...applicationData,
+        user_id: applicationData.user_id // This should be passed from the calling code
+      }
+
       const { data, error } = await supabase
         .from('task_applications')
-        .insert([applicationData])
+        .insert([applicationWithUserId])
         .select('*')
         .single()
 
@@ -34,8 +40,8 @@ export class TaskApplicationService {
 
       // Get tasker and task details
       const [taskerResult, taskResult] = await Promise.all([
-        supabase.from('profiles').select('full_name, avatar_url').eq('id', data.tasker_id).single(),
-        supabase.from('tasks').select('title, customer_id').eq('id', data.task_id).single()
+        supabase.from('profiles').select('full_name, avatar_url').eq('id', data.tasker_id).maybeSingle(),
+        supabase.from('tasks').select('title, customer_id').eq('id', data.task_id).maybeSingle()
       ])
 
       // Get customer name
@@ -115,15 +121,54 @@ export class TaskApplicationService {
   // Check if user has already applied to a specific task
   static async hasUserAppliedToTask(userId: string, taskId: string): Promise<boolean> {
     try {
+      console.log('TaskApplicationService: Checking if user', userId, 'has applied to task', taskId)
+      
+      // First get the profile ID for this user
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle()
+
+      console.log('TaskApplicationService: Profile lookup result:', profile)
+
+      if (!profile) {
+        console.log('TaskApplicationService: No profile found for user', userId)
+        return false
+      }
+
       const { data, error } = await supabase
         .from('task_applications')
-        .select('id')
-        .eq('tasker_id', userId)
+        .select('id, tasker_id, user_id')
+        .eq('tasker_id', profile.id)
         .eq('task_id', taskId)
         .limit(1)
 
+      console.log('TaskApplicationService: Application lookup result:', { data, error })
+      console.log('TaskApplicationService: Looking for tasker_id:', profile.id, 'task_id:', taskId)
+      
+      // Also check by user_id in case there's a mismatch
+      if (!data || data.length === 0) {
+        console.log('TaskApplicationService: No application found by tasker_id, checking by user_id')
+        const { data: userData, error: userError } = await supabase
+          .from('task_applications')
+          .select('id, tasker_id, user_id')
+          .eq('user_id', profile.id)
+          .eq('task_id', taskId)
+          .limit(1)
+        
+        console.log('TaskApplicationService: User_id lookup result:', { data: userData, error: userError })
+        
+        if (userData && userData.length > 0) {
+          console.log('TaskApplicationService: Found application by user_id instead of tasker_id')
+          return true
+        }
+      }
+
       if (error) throw error
-      return data && data.length > 0
+      const hasApplied = data && data.length > 0
+      console.log('TaskApplicationService: User has applied:', hasApplied)
+      return hasApplied
     } catch (error) {
       console.error('Error checking if user has applied:', error)
       return false
@@ -277,53 +322,24 @@ export class TaskApplicationService {
         return
       }
 
-      // Check if chat already exists
-      const { data: existingChat } = await supabase
-        .from('chats')
-        .select('id')
-        .eq('task_id', taskId)
-        .eq('customer_id', task.customer_id)
-        .eq('tasker_id', taskerId)
-        .single()
-
-      if (existingChat) {
-        console.log('Chat already exists for this task')
-        return
-      }
-
-      // Create chat
-      const { data: chatData, error: chatError } = await supabase
-        .from('chats')
-        .insert({
-          task_id: taskId,
-          customer_id: task.customer_id,
-          tasker_id: taskerId
-        })
-        .select('id')
-        .single()
-
-      if (chatError) {
-        console.error('Error creating chat:', chatError)
-        return
-      }
-
-      if (!chatData) {
-        console.error('No chat data returned')
-        return
-      }
-
-      // Send initial message
-      const { error: messageError } = await supabase
-        .from('messages')
-        .insert({
-          chat_id: chatData.id,
-          sender_id: task.customer_id,
-          content: `Great! I've accepted your application for "${task.title}". Let's discuss the details!`,
-          message_type: 'text'
-        })
-
-      if (messageError) {
-        console.error('Error sending initial message:', messageError)
+      // Import ChatService dynamically to avoid circular imports
+      const { ChatService } = await import('./ChatService')
+      
+      // Create chat between customer and tasker
+      const chat = await ChatService.getOrCreateChat(taskId, task.customer_id, taskerId)
+      
+      if (chat) {
+        console.log('Chat created successfully for accepted application')
+        
+        // Send initial welcome message
+        await ChatService.sendMessage(
+          chat.id,
+          task.customer_id,
+          `Great! I've accepted your application for "${task.title}". Let's discuss the details!`,
+          'text'
+        )
+      } else {
+        console.error('Failed to create chat for accepted application')
       }
     } catch (error) {
       console.error('Error creating chat for accepted application:', error)
@@ -392,8 +408,8 @@ export class TaskApplicationService {
 
       // Get tasker and task details
       const [taskerResult, taskResult] = await Promise.all([
-        supabase.from('profiles').select('full_name, avatar_url').eq('id', data.tasker_id).single(),
-        supabase.from('tasks').select('title, customer_id').eq('id', data.task_id).single()
+        supabase.from('profiles').select('full_name, avatar_url').eq('id', data.tasker_id).maybeSingle(),
+        supabase.from('tasks').select('title, customer_id').eq('id', data.task_id).maybeSingle()
       ])
 
       // Get customer name

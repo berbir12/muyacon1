@@ -195,12 +195,6 @@ function TabNavigator() {
         }}
       />
       
-      <Tabs.Screen
-        name="payment-methods"
-        options={{
-          href: null, // Hide from tab bar
-        }}
-      />
       
       <Tabs.Screen
         name="work-schedule"
@@ -263,9 +257,9 @@ export default function RootLayout() {
            <LanguageProvider>
              <AuthProvider>
                <NotificationProvider>
-                 <ToastProvider>
-                   <AppContent />
-                 </ToastProvider>
+        <ToastProvider>
+          <AppContent />
+        </ToastProvider>
                </NotificationProvider>
              </AuthProvider>
            </LanguageProvider>

@@ -15,7 +15,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
 import { useAuth } from '../contexts/SimpleAuthContext'
 import { SimpleNotificationService } from '../services/SimpleNotificationService'
-import { TaskService, Task } from '../services/TaskService'
+import { TaskService, Task } from '../services/TaskServiceFixed'
 import Colors from '../constants/Colors'
 
 const { width } = Dimensions.get('window')

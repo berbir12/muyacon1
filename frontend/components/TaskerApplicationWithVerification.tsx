@@ -48,7 +48,6 @@ const TaskerApplicationWithVerification: React.FC<TaskerApplicationWithVerificat
     years_of_experience: 0,
     skills: [] as string[],
     availability: [] as string[],
-    hourly_rate: 0,
     certifications: [] as string[],
     id_front_url: '',
     id_back_url: ''
@@ -383,14 +382,6 @@ const TaskerApplicationWithVerification: React.FC<TaskerApplicationWithVerificat
               placeholder="Years of Experience"
               value={applicationData.years_of_experience.toString()}
               onChangeText={(text) => setApplicationData({ ...applicationData, years_of_experience: parseInt(text) || 0 })}
-              keyboardType="numeric"
-            />
-            
-            <TextInput
-              style={styles.input}
-              placeholder="Hourly Rate ($)"
-              value={applicationData.hourly_rate.toString()}
-              onChangeText={(text) => setApplicationData({ ...applicationData, hourly_rate: parseFloat(text) || 0 })}
               keyboardType="numeric"
             />
           </View>

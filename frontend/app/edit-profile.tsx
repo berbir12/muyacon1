@@ -35,7 +35,6 @@ export default function EditProfile() {
     zipCode: '',
     skills: [] as string[],
     languages: [] as string[],
-    hourlyRate: '',
     experience: '',
     certifications: [] as string[],
     portfolio: [] as string[]
@@ -55,7 +54,6 @@ export default function EditProfile() {
         zipCode: user.profile.zip_code || '',
         skills: user.profile.skills || [],
         languages: user.profile.languages || [],
-        hourlyRate: user.profile.hourly_rate?.toString() || '',
         experience: user.profile.experience_years?.toString() || '',
         certifications: user.profile.certifications || [],
         portfolio: user.profile.portfolio_images || []
@@ -84,7 +82,6 @@ export default function EditProfile() {
         zip_code: formData.zipCode,
         skills: formData.skills,
         languages: formData.languages,
-        hourly_rate: formData.hourlyRate ? parseFloat(formData.hourlyRate) : null,
         experience_years: formData.experience ? parseInt(formData.experience) : 0,
         certifications: formData.certifications,
         portfolio_images: formData.portfolio
@@ -373,18 +370,6 @@ export default function EditProfile() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Professional Information</Text>
             
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Hourly Rate</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.hourlyRate}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, hourlyRate: text }))}
-                placeholder="Enter your hourly rate"
-                placeholderTextColor={Colors.neutral[400]}
-                keyboardType="numeric"
-              />
-            </View>
-
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Years of Experience</Text>
               <TextInput

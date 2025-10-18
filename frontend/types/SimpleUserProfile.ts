@@ -26,7 +26,6 @@ export interface SimpleUserProfile {
     zip_code?: string;
     skills?: string[];
     languages?: string[];
-    hourly_rate?: number;
     experience_years?: number;
     certifications?: string[];
     portfolio_images?: string[];

@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { View, Text, TouchableOpacity, Image, Alert, StyleSheet } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
+import * as ImagePicker from 'expo-image-picker'
 import { ImageService } from '../services/ImageService'
 import Colors from '../constants/Colors'
 
@@ -23,16 +24,32 @@ export default function ImageUpload({
     try {
       setUploading(true)
       
-      const uris = await ImageService.showImagePicker('Select Image', {
+      // Request permissions
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please grant camera roll permissions to upload images')
+        return
+      }
+
+      // Launch image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [4, 3],
-        quality: 0.8
+        quality: 0.8,
       })
 
-      if (uris && uris.length > 0) {
-        // For now, just use the local URI
-        // In a real app, you'd upload to your server here
-        onImageUploaded(uris[0])
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0]
+        
+        // Upload to Supabase Storage
+        const uploadResult = await ImageService.uploadImage(asset.uri, 'general-images')
+        
+        if (uploadResult.success && uploadResult.url) {
+          onImageUploaded(uploadResult.url)
+        } else {
+          Alert.alert('Upload Failed', uploadResult.error || 'Failed to upload image')
+        }
       }
     } catch (error) {
       console.error('Error selecting image:', error)

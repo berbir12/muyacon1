@@ -89,16 +89,20 @@ export class TaskService {
   // Get all available tasks (open status, not assigned to current user)
   static async getAvailableTasks(userId: string): Promise<Task[]> {
     try {
+      console.log('🚀 NEW CODE RUNNING - Getting available tasks for user:', userId)
       
       // First get the profile ID for this user to exclude their own tasks
-      const { data: userProfile } = await supabase
+      const { data: userProfile, error: profileError } = await supabase
         .from('profiles')
-        .select('id')
+        .select('id, user_id')
         .eq('user_id', userId)
-        .single()
+        .maybeSingle()
 
+      console.log('User profile lookup result:', { userProfile, profileError })
+      console.log('DEBUG: userProfile.user_id =', userProfile?.user_id)
 
       if (!userProfile) {
+        console.log('No profile found, getting all open tasks')
         // If no profile, just get all open tasks
         const { data, error } = await supabase
           .from('tasks')
@@ -120,18 +124,25 @@ export class TaskService {
         }))
       }
       
-      const { data, error } = await supabase
+      console.log('Excluding tasks created by user_id:', userProfile.user_id)
+      
+      // Use a simpler approach - get all open tasks first, then filter
+      const { data: allTasks, error: allTasksError } = await supabase
         .from('tasks')
         .select('*')
         .eq('status', 'open')
-        .neq('customer_id', userProfile.id) // Use profile ID to exclude user's own tasks
         .order('created_at', { ascending: false })
 
-
-      if (error) {
-        console.error('TaskService: Database error:', error)
-        throw error
+      if (allTasksError) {
+        console.error('Error fetching all tasks:', allTasksError)
+        throw allTasksError
       }
+
+      // Filter out tasks created by this user
+      const data = allTasks?.filter(task => task.user_id !== userProfile.user_id) || []
+      console.log('Filtered tasks count:', data.length, 'out of', allTasks?.length || 0)
+
+      console.log('Available tasks query result:', { data: data?.length, error: null })
 
       // Get customer names separately to avoid foreign key issues
       const customerIds = [...new Set(data.map(task => task.customer_id))];
@@ -144,6 +155,7 @@ export class TaskService {
         applications_count: 0
       }))
 
+      console.log('Returning available tasks:', mappedTasks.length)
       return mappedTasks
     } catch (error) {
       const appError = handleError(error, 'getAvailableTasks')
@@ -155,36 +167,56 @@ export class TaskService {
   // Get user's posted tasks
   static async getMyTasks(userId: string): Promise<Task[]> {
     try {
+      console.log('🚀 NEW CODE RUNNING - Getting my tasks for user:', userId)
+      
       // First get the profile ID for this user
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('id')
+        .select('id, user_id, full_name')
         .eq('user_id', userId)
-        .single()
+        .maybeSingle()
 
+      console.log('Profile lookup for my tasks:', { profile, profileError })
+      console.log('DEBUG: profile.user_id =', profile?.user_id)
 
       if (!profile) {
+        console.log('No profile found for my tasks')
         return []
       }
 
-      const { data, error } = await supabase
+      console.log('Getting my tasks for user_id:', profile.user_id)
+      console.log('Profile details:', { id: profile.id, user_id: profile.user_id, full_name: profile.full_name })
+      console.log('Query will look for tasks where user_id =', profile.user_id)
+
+      // Use a simpler approach - get all tasks first, then filter
+      const { data: allTasks, error: allTasksError } = await supabase
         .from('tasks')
         .select('*')
-        .eq('customer_id', profile.id)
         .order('created_at', { ascending: false })
 
-      if (error) throw error
+      if (allTasksError) {
+        console.error('Error fetching all tasks for my tasks:', allTasksError)
+        throw allTasksError
+      }
+
+      // Filter to get tasks created by this user
+      const data = allTasks?.filter(task => task.user_id === profile.user_id) || []
+      console.log('My tasks count:', data.length, 'out of', allTasks?.length || 0)
+      console.log('My tasks query result:', { data: data?.length, error: null })
 
       // Get tasker names separately if any tasks have taskers
       const taskerIds = data.filter(task => task.tasker_id).map(task => task.tasker_id);
       const taskerMap = await this.getProfileNames(taskerIds);
 
-      return data.map(task => ({
+      const mappedTasks = data.map(task => ({
         ...task,
         tasker_name: task.tasker_id ? taskerMap.get(task.tasker_id) || 'Unknown' : '',
         category_name: task.category || 'Other',
         applications_count: 0 // Will be calculated separately
       }))
+
+      console.log('Returning my tasks:', mappedTasks.length)
+      return mappedTasks
     } catch (error) {
       const appError = handleError(error, 'getMyTasks')
       console.error('Error getting my tasks:', appError)
@@ -231,7 +263,7 @@ export class TaskService {
       if (error) throw error
 
       // Get customer name separately
-      const customerResult = await supabase.from('profiles').select('full_name').eq('id', data.customer_id).single()
+      const customerResult = await supabase.from('profiles').select('full_name').eq('id', data.customer_id).maybeSingle()
 
       return {
         ...data,
@@ -246,7 +278,7 @@ export class TaskService {
   }
 
   // Apply to a task
-  static async applyToTask(taskId: string, taskerId: string, proposedPrice: number, message: string, availabilityDate: string): Promise<boolean> {
+  static async applyToTask(taskId: string, taskerId: string, proposedPrice: number, message: string, availabilityDate: string, userId: string): Promise<boolean> {
     try {
       // Check if already applied
       const { data: existingApplication } = await supabase
@@ -254,7 +286,7 @@ export class TaskService {
         .select('id')
         .eq('task_id', taskId)
         .eq('tasker_id', taskerId)
-        .single()
+        .maybeSingle()
 
       if (existingApplication) {
         return false // Already applied
@@ -266,6 +298,7 @@ export class TaskService {
         .insert([{
           task_id: taskId,
           tasker_id: taskerId,
+          user_id: userId, // Add user_id field
           proposed_price: proposedPrice,
           estimated_time: 1, // Default to 1 hour
           message,
@@ -461,7 +494,7 @@ export class TaskService {
         .from('profiles')
         .select('full_name')
         .eq('id', data.customer_id)
-        .single()
+        .maybeSingle()
 
       // Get tasker name if assigned
       let taskerName = ''
@@ -470,7 +503,7 @@ export class TaskService {
           .from('profiles')
           .select('full_name')
           .eq('id', data.tasker_id)
-          .single()
+          .maybeSingle()
         taskerName = tasker?.full_name || ''
       }
 
@@ -842,7 +875,7 @@ export class TaskService {
         .from('profiles')
         .select('id')
         .eq('user_id', userId)
-        .single()
+        .maybeSingle()
 
       if (!profile) {
         return {

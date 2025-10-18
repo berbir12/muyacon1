@@ -132,13 +132,6 @@ export default function Settings() {
           onPress: () => router.push('/notifications'),
           showArrow: true
         },
-        {
-          icon: 'bug-outline',
-          title: 'Database Debug',
-          subtitle: 'Test database connection and fix issues',
-          onPress: () => router.push('/debug-database'),
-          showArrow: true
-        }
       ]
     },
     {
@@ -161,13 +154,6 @@ export default function Settings() {
           onPress: () => router.push('/work-schedule'),
           showArrow: true
         },
-        {
-          icon: 'analytics-outline',
-          title: 'Earnings',
-          subtitle: 'View your earnings and reports',
-          onPress: () => router.push('/earnings'),
-          showArrow: true
-        }
       ]
     },
     {
@@ -211,33 +197,12 @@ export default function Settings() {
       title: 'Support',
       items: [
         {
-          icon: 'help-circle-outline',
-          title: 'Help Center',
-          subtitle: 'Get help and support',
-          onPress: () => router.push('/help-center'),
-          showArrow: true
-        },
-        {
           icon: 'chatbubble-outline',
           title: 'Contact Us',
           subtitle: 'Get in touch with our team',
           onPress: () => router.push('/contact-us'),
           showArrow: true
         },
-        {
-          icon: 'document-text-outline',
-          title: 'Terms of Service',
-          subtitle: 'Read our terms and conditions',
-          onPress: () => router.push('/terms-of-service'),
-          showArrow: true
-        },
-        {
-          icon: 'shield-checkmark-outline',
-          title: 'Privacy Policy',
-          subtitle: 'Read our privacy policy',
-          onPress: () => router.push('/privacy-policy'),
-          showArrow: true
-        }
       ]
     }
   ]

@@ -18,7 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useAuth } from '../contexts/SimpleAuthContext'
-import { TaskService } from '../services/TaskService'
+import { TaskService } from '../services/TaskServiceFixed'
 import { SimpleNotificationService } from '../services/SimpleNotificationService'
 import { PushNotificationService } from '../services/PushNotificationService'
 import { supabase } from '../lib/supabase'
@@ -95,40 +95,28 @@ export default function PostTask() {
 
   const ensureUserProfile = async (userId: string): Promise<string> => {
     try {
-      // Check if profile exists
-      const { data: existingProfile } = await supabase
+      // Check if profile exists using the auth.users.id (user_id field)
+      const { data: existingProfile, error: profileError } = await supabase
         .from('profiles')
         .select('id')
         .eq('user_id', userId)
-        .single()
+        .maybeSingle()
+
+      if (profileError) {
+        console.error('Error checking profile existence:', profileError)
+        throw new Error(`Database error: ${profileError.message}`)
+      }
 
       if (existingProfile) {
+        console.log('Profile found:', existingProfile.id)
         return existingProfile.id
       }
 
-      // Create profile if it doesn't exist
-      const { data: newProfile, error } = await supabase
-        .from('profiles')
-        .insert({
-          user_id: userId,
-          full_name: user?.full_name || 'User',
-          username: user?.username || 'user',
-          phone: user?.phone || '',
-          role: 'customer',
-          current_mode: 'customer'
-        })
-        .select('id')
-        .single()
-
-      if (error) {
-        console.error('Error creating profile:', error)
-        return userId // Fallback to user ID
-      }
-
-      return newProfile.id
+      // If profile doesn't exist, throw an error instead of creating one
+      throw new Error('Profile not found. Please complete your profile setup first.')
     } catch (error) {
       console.error('Error ensuring user profile:', error)
-      return userId // Fallback to user ID
+      throw error // Re-throw the error instead of returning fallback
     }
   }
 
@@ -151,11 +139,10 @@ export default function PostTask() {
         .insert([{
           name: categoryName,
           slug: categoryName.toLowerCase().replace(/\s+/g, '-'),
-          description: `${categoryName} services`,
-          icon: 'briefcase',
-          color: '#8B5CF6',
-          is_active: true,
-          sort_order: 0
+        description: `${categoryName} services`,
+        icon: 'briefcase',
+        color: '#8B5CF6',
+        is_active: true
         }])
         .select('id')
         .single()
@@ -199,8 +186,15 @@ export default function PostTask() {
 
     setLoading(true)
     try {
+      console.log('Post task - User object:', {
+        id: user.id,
+        user_id: user.user_id,
+        full_name: user.full_name,
+        phone: user.phone
+      })
+      
       // First ensure user profile exists and get profile ID
-      const profileId = await ensureUserProfile(user.id)
+      const profileId = await ensureUserProfile(user.user_id)
       
       // Then get or create category
       const categoryId = await getOrCreateCategory(selectedCategory)
@@ -213,8 +207,8 @@ export default function PostTask() {
         city: 'Addis Ababa',
         state: 'Addis Ababa',
         zip_code: '1000',
-        latitude: null,
-        longitude: null,
+        latitude: undefined,
+        longitude: undefined,
         flexible_date: false, // Now we have specific date/time
         // Store as date and time strings compatible with Postgres DATE and TIME
         task_date: taskDate.toISOString().split('T')[0],
@@ -224,6 +218,7 @@ export default function PostTask() {
         urgency: urgent ? 'urgent' as const : 'flexible' as const,
         status: 'open' as const,
         customer_id: profileId, // Use the actual profile ID
+        user_id: user.user_id, // Use the auth.users.id for user_id field
         category_id: categoryId,
         requirements: [],
         attachments: [],
@@ -266,7 +261,7 @@ export default function PostTask() {
             setTaskTime(defaultTime)
             
             // Redirect to Jobs tab
-            router.push('/jobs')
+            router.back()
           }
         }
       ])
@@ -290,7 +285,7 @@ export default function PostTask() {
             <View style={styles.header}>
               <TouchableOpacity 
                 style={styles.backButton}
-                onPress={() => router.push('/jobs')}
+                onPress={() => router.back()}
               >
                 <Ionicons name="arrow-back" size={24} color={Colors.neutral[900]} />
               </TouchableOpacity>

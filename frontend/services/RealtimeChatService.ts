@@ -1,15 +1,8 @@
 import { supabase } from '../lib/supabase'
 import { RealtimeChannel } from '@supabase/supabase-js'
+import { ChatService, Chat, Message } from './ChatService'
 
-export interface RealtimeMessage {
-  id: string
-  chat_id: string
-  sender_id: string
-  receiver_id?: string
-  message: string
-  message_type: 'text' | 'image' | 'file'
-  created_at: string
-  updated_at: string
+export interface RealtimeMessage extends Message {
   sender_name?: string
   sender_avatar?: string
 }
@@ -28,15 +21,13 @@ export class RealtimeChatService {
 
   // Subscribe to a chat for real-time updates
   static async subscribeToChat(chatId: string, callbacks: {
-    onMessage?: (message: RealtimeMessage) => void
+    onMessage: (message: RealtimeMessage) => void
     onTyping?: (userId: string, isTyping: boolean) => void
     onUserOnline?: (userId: string, isOnline: boolean) => void
   }): Promise<RealtimeChannel | null> {
     try {
-      // Unsubscribe from existing channel if it exists
-      if (this.channels.has(chatId)) {
-        await this.unsubscribeFromChat(chatId)
-      }
+      // Unsubscribe from existing channel if any
+      this.unsubscribeFromChat(chatId)
 
       const channel = supabase
         .channel(`chat:${chatId}`)
@@ -51,28 +42,11 @@ export class RealtimeChatService {
           async (payload) => {
             console.log('New message received:', payload)
             
-            if (callbacks.onMessage) {
-              // Get sender details
-              const { data: sender } = await supabase
-                .from('profiles')
-                .select('full_name, avatar_url')
-                .eq('id', payload.new.sender_id)
-                .single()
-
-              const message: RealtimeMessage = {
-                id: payload.new.id,
-                chat_id: payload.new.chat_id,
-                sender_id: payload.new.sender_id,
-                receiver_id: payload.new.receiver_id,
-                message: payload.new.message,
-                message_type: payload.new.message_type || 'text',
-                created_at: payload.new.created_at,
-                updated_at: payload.new.updated_at,
-                sender_name: sender?.full_name,
-                sender_avatar: sender?.avatar_url
-              }
-
-              callbacks.onMessage(message)
+            // Get the full message with sender details
+            const message = await ChatService.getChatMessages(chatId, 1, 0)
+            if (message.length > 0) {
+              const fullMessage = message[0] as RealtimeMessage
+              callbacks.onMessage(fullMessage)
             }
           }
         )
@@ -87,67 +61,15 @@ export class RealtimeChatService {
           async (payload) => {
             console.log('Message updated:', payload)
             
-            if (callbacks.onMessage) {
-              // Get sender details
-              const { data: sender } = await supabase
-                .from('profiles')
-                .select('full_name, avatar_url')
-                .eq('id', payload.new.sender_id)
-                .single()
-
-              const message: RealtimeMessage = {
-                id: payload.new.id,
-                chat_id: payload.new.chat_id,
-                sender_id: payload.new.sender_id,
-                receiver_id: payload.new.receiver_id,
-                message: payload.new.message,
-                message_type: payload.new.message_type || 'text',
-                created_at: payload.new.created_at,
-                updated_at: payload.new.updated_at,
-                sender_name: sender?.full_name,
-                sender_avatar: sender?.avatar_url
-              }
-
-              callbacks.onMessage(message)
+            // Get the updated message
+            const message = await ChatService.getChatMessages(chatId, 1, 0)
+            if (message.length > 0) {
+              const fullMessage = message[0] as RealtimeMessage
+              callbacks.onMessage(fullMessage)
             }
           }
         )
-        .on('presence', { event: 'sync' }, () => {
-          console.log('Presence synced')
-          const state = channel.presenceState()
-          console.log('Online users:', state)
-          
-          if (callbacks.onUserOnline) {
-            Object.keys(state).forEach(userId => {
-              if (!this.onlineUsers.has(userId)) {
-                this.onlineUsers.add(userId)
-                callbacks.onUserOnline(userId, true)
-              }
-            })
-          }
-        })
-        .on('presence', { event: 'join' }, ({ key, newPresences }) => {
-          console.log('User joined:', key, newPresences)
-          if (callbacks.onUserOnline) {
-            callbacks.onUserOnline(key, true)
-          }
-        })
-        .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-          console.log('User left:', key, leftPresences)
-          if (callbacks.onUserOnline) {
-            callbacks.onUserOnline(key, false)
-          }
-        })
-        .subscribe(async (status) => {
-          console.log('Chat subscription status:', status)
-          if (status === 'SUBSCRIBED') {
-            // Track user presence
-            await channel.track({
-              user_id: (await supabase.auth.getUser()).data.user?.id,
-              online_at: new Date().toISOString()
-            })
-          }
-        })
+        .subscribe()
 
       this.channels.set(chatId, channel)
       return channel
@@ -158,122 +80,47 @@ export class RealtimeChatService {
   }
 
   // Unsubscribe from a chat
-  static async unsubscribeFromChat(chatId: string): Promise<void> {
-    try {
-      const channel = this.channels.get(chatId)
-      if (channel) {
-        await supabase.removeChannel(channel)
-        this.channels.delete(chatId)
-        console.log(`Unsubscribed from chat: ${chatId}`)
-      }
-    } catch (error) {
-      console.error('Error unsubscribing from chat:', error)
+  static unsubscribeFromChat(chatId: string): void {
+    const channel = this.channels.get(chatId)
+    if (channel) {
+      supabase.removeChannel(channel)
+      this.channels.delete(chatId)
     }
   }
 
+  // Unsubscribe from all chats
+  static unsubscribeFromAllChats(): void {
+    this.channels.forEach((channel) => {
+      supabase.removeChannel(channel)
+    })
+    this.channels.clear()
+  }
+
   // Send a message
-  static async sendMessage(chatId: string, message: string, messageType: 'text' | 'image' | 'file' = 'text'): Promise<boolean> {
+  static async sendMessage(chatId: string, senderId: string, content: string, messageType: 'text' | 'image' | 'file' = 'text'): Promise<boolean> {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        console.error('No authenticated user')
-        return false
-      }
-
-      // Get chat details to find receiver
-      const { data: chat } = await supabase
-        .from('chats')
-        .select('customer_id, tasker_id')
-        .eq('id', chatId)
-        .single()
-
-      if (!chat) {
-        console.error('Chat not found')
-        return false
-      }
-
-      const receiverId = user.id === chat.customer_id ? chat.tasker_id : chat.customer_id
-
-      const { error } = await supabase
-        .from('messages')
-        .insert({
-          chat_id: chatId,
-          sender_id: user.id,
-          receiver_id: receiverId,
-          message,
-          message_type: messageType
-        })
-
-      if (error) {
-        console.error('Error sending message:', error)
-        return false
-      }
-
-      return true
+      const message = await ChatService.sendMessage(chatId, senderId, content, messageType)
+      return message !== null
     } catch (error) {
       console.error('Error sending message:', error)
       return false
     }
   }
 
-  // Send typing indicator
-  static async sendTypingIndicator(chatId: string, isTyping: boolean): Promise<void> {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const channel = this.channels.get(chatId)
-      if (channel) {
-        await channel.track({
-          user_id: user.id,
-          typing: isTyping,
-          online_at: new Date().toISOString()
-        })
-      }
-    } catch (error) {
-      console.error('Error sending typing indicator:', error)
-    }
-  }
-
   // Mark messages as read
-  static async markMessagesAsRead(chatId: string, messageIds: string[]): Promise<boolean> {
+  static async markMessagesAsRead(chatId: string, userId: string): Promise<boolean> {
     try {
-      const { error } = await supabase
-        .from('messages')
-        .update({ read_at: new Date().toISOString() })
-        .in('id', messageIds)
-
-      if (error) {
-        console.error('Error marking messages as read:', error)
-        return false
-      }
-
-      return true
+      return await ChatService.markMessagesAsRead(chatId, userId)
     } catch (error) {
       console.error('Error marking messages as read:', error)
       return false
     }
   }
 
-  // Get unread message count for a chat
-  static async getUnreadCount(chatId: string): Promise<number> {
+  // Get unread count for a chat
+  static async getUnreadCount(chatId: string, userId: string): Promise<number> {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return 0
-
-      const { count, error } = await supabase
-        .from('messages')
-        .select('*', { count: 'exact', head: true })
-        .eq('chat_id', chatId)
-        .neq('sender_id', user.id)
-        .is('read_at', null)
-
-      if (error) {
-        console.error('Error getting unread count:', error)
-        return 0
-      }
-
-      return count || 0
+      return await ChatService.getUnreadCount(chatId, userId)
     } catch (error) {
       console.error('Error getting unread count:', error)
       return 0
@@ -281,22 +128,13 @@ export class RealtimeChatService {
   }
 
   // Get all unread counts for user's chats
-  static async getAllUnreadCounts(): Promise<Map<string, number>> {
+  static async getAllUnreadCounts(userId: string): Promise<Map<string, number>> {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return new Map()
-
-      const { data: chats } = await supabase
-        .from('chats')
-        .select('id')
-        .or(`customer_id.eq.${user.id},tasker_id.eq.${user.id}`)
-
-      if (!chats) return new Map()
-
+      const chats = await ChatService.getUserChats(userId)
       const unreadCounts = new Map<string, number>()
 
       for (const chat of chats) {
-        const count = await this.getUnreadCount(chat.id)
+        const count = await this.getUnreadCount(chat.id, userId)
         unreadCounts.set(chat.id, count)
       }
 
@@ -307,38 +145,74 @@ export class RealtimeChatService {
     }
   }
 
-  // Cleanup all subscriptions
-  static async cleanup(): Promise<void> {
+  // Get total unread count for user
+  static async getTotalUnreadCount(userId: string): Promise<number> {
     try {
-      for (const [chatId, channel] of this.channels) {
-        await supabase.removeChannel(channel)
-      }
-      this.channels.clear()
-      this.typingUsers.clear()
-      this.onlineUsers.clear()
-      console.log('Cleaned up all chat subscriptions')
+      return await ChatService.getTotalUnreadCount(userId)
     } catch (error) {
-      console.error('Error cleaning up subscriptions:', error)
+      console.error('Error getting total unread count:', error)
+      return 0
     }
   }
 
-  // Get online users for a chat
-  static getOnlineUsers(chatId: string): string[] {
-    const channel = this.channels.get(chatId)
-    if (!channel) return []
-
-    const state = channel.presenceState()
-    return Object.keys(state)
+  // Get chat messages
+  static async getChatMessages(chatId: string, limit: number = 50, offset: number = 0): Promise<RealtimeMessage[]> {
+    try {
+      const messages = await ChatService.getChatMessages(chatId, limit, offset)
+      return messages as RealtimeMessage[]
+    } catch (error) {
+      console.error('Error getting chat messages:', error)
+      return []
+    }
   }
 
-  // Check if user is typing
-  static isUserTyping(chatId: string, userId: string): boolean {
-    const typingSet = this.typingUsers.get(chatId)
-    return typingSet ? typingSet.has(userId) : false
+  // Get user chats
+  static async getUserChats(userId: string): Promise<Chat[]> {
+    try {
+      return await ChatService.getUserChats(userId)
+    } catch (error) {
+      console.error('Error getting user chats:', error)
+      return []
+    }
   }
 
-  // Check if user is online
-  static isUserOnline(userId: string): boolean {
-    return this.onlineUsers.has(userId)
+  // Get or create chat
+  static async getOrCreateChat(taskId: string, customerId: string, taskerId: string): Promise<Chat | null> {
+    try {
+      return await ChatService.getOrCreateChat(taskId, customerId, taskerId)
+    } catch (error) {
+      console.error('Error getting/creating chat:', error)
+      return null
+    }
+  }
+
+  // Update chat status
+  static async updateChatStatus(chatId: string, status: 'active' | 'archived' | 'blocked'): Promise<boolean> {
+    try {
+      return await ChatService.updateChatStatus(chatId, status)
+    } catch (error) {
+      console.error('Error updating chat status:', error)
+      return false
+    }
+  }
+
+  // Delete a message
+  static async deleteMessage(messageId: string, senderId: string): Promise<boolean> {
+    try {
+      return await ChatService.deleteMessage(messageId, senderId)
+    } catch (error) {
+      console.error('Error deleting message:', error)
+      return false
+    }
+  }
+
+  // Get chat by ID
+  static async getChatById(chatId: string): Promise<Chat | null> {
+    try {
+      return await ChatService.getChatById(chatId)
+    } catch (error) {
+      console.error('Error getting chat by ID:', error)
+      return null
+    }
   }
 }

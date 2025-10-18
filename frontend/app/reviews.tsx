@@ -96,7 +96,7 @@ export default function ReviewsScreen() {
       <View style={styles.header}>
         <TouchableOpacity 
           style={styles.backButton}
-          onPress={() => router.push('/jobs')}
+          onPress={() => router.back()}
         >
           <Ionicons name="arrow-back" size={24} color={Colors.neutral[900]} />
         </TouchableOpacity>

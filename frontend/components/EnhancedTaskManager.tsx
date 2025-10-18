@@ -13,7 +13,7 @@ import {
   FlatList
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import { TaskService, Task } from '../services/TaskService'
+import { TaskService, Task } from '../services/TaskServiceFixed'
 import { SearchService, SearchFilters } from '../services/SearchService'
 import Colors from '../constants/Colors'
 

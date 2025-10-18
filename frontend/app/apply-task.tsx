@@ -25,7 +25,6 @@ export default function ApplyTask() {
   const { taskId, taskTitle, customerName, budget } = useLocalSearchParams()
   const [proposedPrice, setProposedPrice] = useState('')
   const [estimatedTime, setEstimatedTime] = useState('')
-  const [availabilityDate, setAvailabilityDate] = useState('')
   const [coverLetter, setCoverLetter] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -65,10 +64,6 @@ export default function ApplyTask() {
       Alert.alert('Error', 'Please enter estimated time')
       return
     }
-    if (!availabilityDate.trim()) {
-      Alert.alert('Error', 'Please select your availability date')
-      return
-    }
     if (!coverLetter.trim()) {
       Alert.alert('Error', 'Please write a cover letter')
       return
@@ -90,11 +85,11 @@ export default function ApplyTask() {
     try {
       const applicationData = {
         task_id: taskId as string,
-        tasker_id: user.id,
+        tasker_id: user.id, // This is the profile ID
+        user_id: user.user_id, // This is the auth.users.id
         proposed_price: price,
         estimated_time: time,
         message: coverLetter.trim(),
-        availability_date: availabilityDate.trim(),
         status: 'pending' as const
       }
 
@@ -130,7 +125,7 @@ export default function ApplyTask() {
             <View style={styles.header}>
               <TouchableOpacity 
                 style={styles.backButton}
-                onPress={() => router.push('/jobs')}
+                onPress={() => router.back()}
               >
                 <Ionicons name="arrow-back" size={24} color={Colors.neutral[900]} />
               </TouchableOpacity>
@@ -190,21 +185,6 @@ export default function ApplyTask() {
                 <Text style={styles.helperText}>How long do you think this will take?</Text>
               </View>
 
-              {/* Availability Date */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>When are you available? *</Text>
-                <View style={styles.inputContainer}>
-                  <Ionicons name="calendar-outline" size={20} color={Colors.neutral[400]} />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="e.g., Tomorrow, Next week, Dec 15"
-                    placeholderTextColor={Colors.neutral[400]}
-                    value={availabilityDate}
-                    onChangeText={setAvailabilityDate}
-                  />
-                </View>
-                <Text style={styles.helperText}>When can you start working on this task?</Text>
-              </View>
 
 
               {/* Cover Letter */}
@@ -236,7 +216,6 @@ export default function ApplyTask() {
                   • Be professional and honest{'\n'}
                   • Explain your relevant experience{'\n'}
                   • Mention any special skills or tools{'\n'}
-                  • Be clear about your availability{'\n'}
                   • Ask questions if you need clarification
                 </Text>
               </View>

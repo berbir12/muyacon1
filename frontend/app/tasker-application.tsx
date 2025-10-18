@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import {
   View,
   Text,
@@ -8,86 +8,38 @@ import {
   SafeAreaView,
   TextInput,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Keyboard,
-  TouchableWithoutFeedback,
+  Image,
 } from 'react-native'
-import DateTimePicker from '@react-native-community/datetimepicker'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import { useAuth } from '../contexts/SimpleAuthContext'
 import { TaskerApplicationService } from '../services/TaskerApplicationService'
+import { ImageService } from '../services/ImageService'
+import * as ImagePicker from 'expo-image-picker'
 import Colors from '../constants/Colors'
 
-const SKILL_CATEGORIES = [
+const SKILLS = [
   'Cleaning', 'Handyman', 'Delivery', 'Photography', 'Technology',
   'Gardening', 'Pet Care', 'Moving', 'Tutoring', 'Cooking'
 ]
 
 export default function TaskerApplication() {
-  const { user, isAuthenticated, refreshUser, isLoading } = useAuth()
+  const { user, isAuthenticated, refreshUserProfile } = useAuth()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
-  const [dateOfBirth, setDateOfBirth] = useState(new Date())
-  const [availabilityDate, setAvailabilityDate] = useState(new Date())
-  const [showDatePicker, setShowDatePicker] = useState(false)
-  const [showAvailabilityPicker, setShowAvailabilityPicker] = useState(false)
   const [formData, setFormData] = useState({
-    fullName: '',
-    phone: '',
-    email: '',
+    fullName: user?.full_name || '',
+    phone: user?.phone || '',
     bio: '',
-    experience: '',
     skills: [] as string[],
-    hourlyRate: '',
-    availability: '',
-    languages: [] as string[],
-    certifications: [] as string[],
-    portfolio: '',
-    references: '',
-    emergencyContactName: '',
-    emergencyContactPhone: '',
-    emergencyContactRelationship: '',
-    address: '',
-    city: '',
-    state: '',
-    zipCode: '',
-    dateOfBirth: '',
-    yearsOfExperience: '',
-    hasTransportation: false,
-    hasTools: false,
-    canWorkWeekends: false,
-    canWorkEvenings: false,
-    maxDistance: '10'
+    experience: '',
+    idFrontUrl: '',
+    idBackUrl: '',
+    skillVerifications: [] as { skill: string; level: string; documents: string[] }[],
   })
 
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.replace('/auth')
-    } else if (isAuthenticated && user) {
-      // Pre-fill with user data
-      setFormData(prev => ({
-        ...prev,
-        fullName: user.name || '',
-        phone: user.phone || '',
-        email: user.profile?.email || ''
-      }))
-    }
-  }, [isAuthenticated, user, isLoading])
-
-  // Show loading while auth is being determined
-  if (isLoading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading...</Text>
-        </View>
-      </SafeAreaView>
-    )
-  }
-
   if (!isAuthenticated) {
+    router.replace('/auth')
     return null
   }
 
@@ -100,117 +52,194 @@ export default function TaskerApplication() {
     }))
   }
 
-  const handleLanguageToggle = (language: string) => {
+  const handleImageUpload = async (type: 'front' | 'back') => {
+    try {
+      // Request permissions
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please grant camera roll permissions to upload images')
+        return
+      }
+
+      // Launch image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [3, 2],
+        quality: 0.8,
+      })
+
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0]
+        
+        // Upload to Supabase Storage
+        const uploadResult = await ImageService.uploadImage(asset.uri, 'id-verification')
+        
+        if (uploadResult.success && uploadResult.url) {
+          setFormData(prev => ({
+            ...prev,
+            [type === 'front' ? 'idFrontUrl' : 'idBackUrl']: uploadResult.url!
+          }))
+        } else {
+          Alert.alert('Upload Failed', uploadResult.error || 'Failed to upload image')
+        }
+      }
+    } catch (error) {
+      console.error('Image upload error:', error)
+      Alert.alert('Error', 'Failed to upload image')
+    }
+  }
+
+  const addSkillVerification = () => {
     setFormData(prev => ({
       ...prev,
-      languages: prev.languages.includes(language)
-        ? prev.languages.filter(l => l !== language)
-        : [...prev.languages, language]
+      skillVerifications: [...prev.skillVerifications, { skill: '', level: 'intermediate', documents: [] }]
+    }))
+  }
+
+  const updateSkillVerification = (index: number, field: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      skillVerifications: prev.skillVerifications.map((item, i) => 
+        i === index ? { ...item, [field]: value } : item
+      )
+    }))
+  }
+
+  const removeSkillVerification = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      skillVerifications: prev.skillVerifications.filter((_, i) => i !== index)
+    }))
+  }
+
+  const handleSkillDocumentUpload = async (skillIndex: number) => {
+    try {
+      // Request permissions
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please grant camera roll permissions to upload documents')
+        return
+      }
+
+      // Launch image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      })
+
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0]
+        
+        // Upload to Supabase Storage
+        const uploadResult = await ImageService.uploadImage(asset.uri, 'skill-documents')
+        
+        if (uploadResult.success && uploadResult.url) {
+          setFormData(prev => ({
+            ...prev,
+            skillVerifications: prev.skillVerifications.map((item, i) => 
+              i === skillIndex 
+                ? { ...item, documents: [...item.documents, uploadResult.url!] }
+                : item
+            )
+          }))
+        } else {
+          Alert.alert('Upload Failed', uploadResult.error || 'Failed to upload document')
+        }
+      }
+    } catch (error) {
+      console.error('Document upload error:', error)
+      Alert.alert('Error', 'Failed to upload document')
+    }
+  }
+
+  const removeSkillDocument = (skillIndex: number, docIndex: number) => {
+    setFormData(prev => ({
+      ...prev,
+      skillVerifications: prev.skillVerifications.map((item, i) => 
+        i === skillIndex 
+          ? { ...item, documents: item.documents.filter((_, j) => j !== docIndex) }
+          : item
+      )
     }))
   }
 
   const handleSubmit = async () => {
-    // Validation
     if (!formData.fullName.trim()) {
       Alert.alert('Error', 'Please enter your full name')
-      return
-    }
-    if (!formData.email.trim()) {
-      Alert.alert('Error', 'Please enter your email')
       return
     }
     if (!formData.phone.trim()) {
       Alert.alert('Error', 'Please enter your phone number')
       return
     }
-    if (!formData.address.trim()) {
-      Alert.alert('Error', 'Please enter your address')
+    if (formData.skills.length === 0) {
+      Alert.alert('Error', 'Please select at least one skill')
       return
     }
-    if (!formData.city.trim()) {
-      Alert.alert('Error', 'Please enter your city')
+    if (!formData.idFrontUrl.trim()) {
+      Alert.alert('Error', 'Please upload your National ID front image')
       return
     }
-    if (!formData.state.trim()) {
-      Alert.alert('Error', 'Please enter your state')
-      return
-    }
-    if (!formData.zipCode.trim()) {
-      Alert.alert('Error', 'Please enter your zip code')
-      return
-    }
-    if (!formData.emergencyContactName.trim()) {
-      Alert.alert('Error', 'Please enter emergency contact name')
-      return
-    }
-    if (!formData.emergencyContactPhone.trim()) {
-      Alert.alert('Error', 'Please enter emergency contact phone')
-      return
-    }
-    if (!formData.emergencyContactRelationship.trim()) {
-      Alert.alert('Error', 'Please enter emergency contact relationship')
-      return
-    }
-    if (!formData.hourlyRate.trim()) {
-      Alert.alert('Error', 'Please enter your hourly rate')
-      return
-    }
-
-    const rate = parseFloat(formData.hourlyRate)
-    if (isNaN(rate) || rate <= 0) {
-      Alert.alert('Error', 'Please enter a valid hourly rate')
+    if (!formData.idBackUrl.trim()) {
+      Alert.alert('Error', 'Please upload your National ID back image')
       return
     }
 
     setLoading(true)
     try {
-      if (!user) {
-        Alert.alert('Error', 'User not authenticated')
-        return
-      }
+      console.log('🚀 TASKER APPLICATION - User object:', {
+        id: user!.id,
+        user_id: user!.user_id,
+        full_name: user!.full_name,
+        phone: user!.phone
+      })
 
-      // Create tasker application
       const applicationData = {
-        user_id: user.id,
+        user_id: user!.user_id, // This should be auth.users.id
         full_name: formData.fullName,
-        email: formData.email,
         phone: formData.phone,
-        address: formData.address,
-        city: formData.city,
-        state: formData.state,
-        zip_code: formData.zipCode,
-        date_of_birth: dateOfBirth.toISOString().split('T')[0],
-        emergency_contact_name: formData.emergencyContactName,
-        emergency_contact_phone: formData.emergencyContactPhone,
-        emergency_contact_relationship: formData.emergencyContactRelationship,
-        years_of_experience: parseInt(formData.yearsOfExperience) || 0,
-        skills: formData.skills.length > 0 ? formData.skills : [],
-        availability: [availabilityDate.toISOString().split('T')[0]],
-        hourly_rate: parseFloat(formData.hourlyRate),
-        certifications: formData.certifications.length > 0 ? formData.certifications : [],
-        status: 'pending' as const
+        bio: formData.bio,
+        skills: formData.skills,
+        experience_years: parseInt(formData.experience) || 0,
+        id_front_url: formData.idFrontUrl,
+        id_back_url: formData.idBackUrl,
+        skill_verifications: formData.skillVerifications,
+        status: 'pending' as const,
       }
 
-      await TaskerApplicationService.createApplication(applicationData)
+      console.log('🚀 TASKER APPLICATION - Application data:', applicationData)
 
-      // Refresh user data to update application status
-      await refreshUser()
+      const result = await TaskerApplicationService.createApplication(applicationData)
+      
+      if (result) {
+        // Refresh user profile to get updated application status
+        try {
+          await refreshUserProfile()
+        } catch (error) {
+          console.log('Profile refresh failed, but application was submitted:', error)
+        }
 
-      Alert.alert(
-        'Application Submitted!',
-        'Your tasker application has been submitted for review. You will be notified once approved.',
-        [
-          {
-            text: 'OK',
+        Alert.alert(
+          'Success!', 
+          'Your application has been submitted successfully. We will review it and get back to you soon.',
+          [{ 
+            text: 'OK', 
             onPress: () => {
-              router.replace('/profile')
+              // Use setTimeout to avoid state update during render
+              setTimeout(() => {
+                router.push('/profile')
+              }, 100)
             }
-          }
-        ]
-      )
-    } catch (error) {
-      console.error('Error submitting application:', error)
-      Alert.alert('Error', 'Failed to submit application. Please try again.')
+          }]
+        )
+      } else {
+        Alert.alert('Error', 'Failed to submit application. Please try again.')
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to submit application')
     } finally {
       setLoading(false)
     }
@@ -218,32 +247,19 @@ export default function TaskerApplication() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
-      >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={styles.content}>
-            {/* Header */}
             <View style={styles.header}>
-              <TouchableOpacity 
-                style={styles.backButton}
-                onPress={() => router.push('/profile')}
-              >
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                 <Ionicons name="arrow-back" size={24} color={Colors.neutral[900]} />
               </TouchableOpacity>
-              <Text style={styles.headerTitle}>Become a Tasker</Text>
+        <Text style={styles.title}>Become a Tasker</Text>
               <View style={styles.placeholder} />
             </View>
 
-            <ScrollView 
-              style={styles.form} 
-              showsVerticalScrollIndicator={true}
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={styles.scrollContent}
-              bounces={true}
-              scrollEventThrottle={16}
-            >
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <Text style={styles.subtitle}>
+          Join our community of skilled taskers and start earning money by helping others with their tasks.
+        </Text>
+
               {/* Personal Information */}
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Personal Information</Text>
@@ -252,10 +268,9 @@ export default function TaskerApplication() {
                   <Text style={styles.label}>Full Name *</Text>
                   <TextInput
                     style={styles.input}
-                    placeholder="Enter your full name"
-                    placeholderTextColor={Colors.neutral[400]}
                     value={formData.fullName}
                     onChangeText={(text) => setFormData(prev => ({ ...prev, fullName: text }))}
+              placeholder="Enter your full name"
                   />
                 </View>
 
@@ -263,78 +278,44 @@ export default function TaskerApplication() {
                   <Text style={styles.label}>Phone Number *</Text>
                   <TextInput
                     style={styles.input}
-                    placeholder="Enter your phone number"
-                    placeholderTextColor={Colors.neutral[400]}
                     value={formData.phone}
                     onChangeText={(text) => setFormData(prev => ({ ...prev, phone: text }))}
+              placeholder="Enter your phone number"
                     keyboardType="phone-pad"
                   />
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Email Address *</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Enter your email"
-                    placeholderTextColor={Colors.neutral[400]}
-                    value={formData.email}
-                    onChangeText={(text) => setFormData(prev => ({ ...prev, email: text }))}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                  />
-                </View>
-              </View>
-
-              {/* Professional Information */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Professional Information</Text>
-                
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Bio *</Text>
-                  <Text style={styles.helperText}>Tell us about yourself and your experience</Text>
+            <Text style={styles.label}>Bio</Text>
                   <TextInput
                     style={[styles.input, styles.textArea]}
-                    placeholder="Write a brief bio about yourself..."
-                    placeholderTextColor={Colors.neutral[400]}
                     value={formData.bio}
                     onChangeText={(text) => setFormData(prev => ({ ...prev, bio: text }))}
+              placeholder="Tell us about yourself and your experience"
                     multiline
                     numberOfLines={4}
-                    maxLength={500}
                   />
-                  <Text style={styles.characterCount}>{formData.bio.length}/500</Text>
+          </View>
                 </View>
 
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Experience *</Text>
-                  <Text style={styles.helperText}>Describe your relevant work experience</Text>
-                  <TextInput
-                    style={[styles.input, styles.textArea]}
-                    placeholder="Describe your experience in your chosen fields..."
-                    placeholderTextColor={Colors.neutral[400]}
-                    value={formData.experience}
-                    onChangeText={(text) => setFormData(prev => ({ ...prev, experience: text }))}
-                    multiline
-                    numberOfLines={3}
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Skills & Services *</Text>
-                  <Text style={styles.helperText}>Select the services you can provide</Text>
+        {/* Skills */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Skills *</Text>
+          <Text style={styles.sectionSubtitle}>Select the skills you can help with</Text>
+          
                   <View style={styles.skillsContainer}>
-                    {SKILL_CATEGORIES.map((skill) => (
+            {SKILLS.map((skill) => (
                       <TouchableOpacity
                         key={skill}
                         style={[
-                          styles.skillChip,
-                          formData.skills.includes(skill) && styles.skillChipActive
+                  styles.skillButton,
+                  formData.skills.includes(skill) && styles.skillButtonSelected
                         ]}
                         onPress={() => handleSkillToggle(skill)}
                       >
                         <Text style={[
-                          styles.skillChipText,
-                          formData.skills.includes(skill) && styles.skillChipTextActive
+                  styles.skillText,
+                  formData.skills.includes(skill) && styles.skillTextSelected
                         ]}>
                           {skill}
                         </Text>
@@ -343,101 +324,108 @@ export default function TaskerApplication() {
                   </View>
                 </View>
 
+        {/* Experience */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Experience</Text>
+
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Hourly Rate *</Text>
-                  <Text style={styles.helperText}>What do you charge per hour?</Text>
-                  <View style={styles.inputContainer}>
-                    <Text style={styles.currencySymbol}>$</Text>
+            <Text style={styles.label}>Years of Experience</Text>
                     <TextInput
                       style={styles.input}
-                      placeholder="25"
-                      placeholderTextColor={Colors.neutral[400]}
-                      value={formData.hourlyRate}
-                      onChangeText={(text) => setFormData(prev => ({ ...prev, hourlyRate: text }))}
+              value={formData.experience}
+              onChangeText={(text) => setFormData(prev => ({ ...prev, experience: text }))}
+              placeholder="0"
                       keyboardType="numeric"
                     />
-                    <Text style={styles.currencyText}>/hour</Text>
-                  </View>
                 </View>
               </View>
 
-              {/* Availability */}
+        {/* National ID Verification - Mandatory */}
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Availability</Text>
-                
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Available From *</Text>
-                  <Text style={styles.helperText}>When can you start working?</Text>
+          <Text style={styles.sectionTitle}>National ID Verification *</Text>
+          <Text style={styles.sectionSubtitle}>Upload clear photos of your National ID card (front and back)</Text>
+          
+          <View style={styles.idUploadContainer}>
+            <View style={styles.idUploadItem}>
+              <Text style={styles.label}>ID Front *</Text>
                   <TouchableOpacity 
-                    style={styles.input}
-                    onPress={() => setShowAvailabilityPicker(true)}
-                  >
-                    <Text style={styles.dateText}>
-                      {availabilityDate.toLocaleDateString()}
-                    </Text>
+                style={styles.uploadButton}
+                onPress={() => handleImageUpload('front')}
+              >
+                {formData.idFrontUrl ? (
+                  <Image source={{ uri: formData.idFrontUrl }} style={styles.uploadedImage} />
+                ) : (
+                  <View style={styles.uploadPlaceholder}>
+                    <Ionicons name="camera" size={32} color={Colors.neutral[400]} />
+                    <Text style={styles.uploadText}>Upload ID Front</Text>
+                  </View>
+                )}
                   </TouchableOpacity>
                 </View>
 
-                <View style={styles.checkboxGroup}>
+            <View style={styles.idUploadItem}>
+              <Text style={styles.label}>ID Back *</Text>
                   <TouchableOpacity
-                    style={styles.checkboxRow}
-                    onPress={() => setFormData(prev => ({ ...prev, canWorkWeekends: !prev.canWorkWeekends }))}
-                  >
-                    <View style={[styles.checkbox, formData.canWorkWeekends && styles.checkboxActive]}>
-                      {formData.canWorkWeekends && <Ionicons name="checkmark" size={16} color="#fff" />}
+                style={styles.uploadButton}
+                onPress={() => handleImageUpload('back')}
+              >
+                {formData.idBackUrl ? (
+                  <Image source={{ uri: formData.idBackUrl }} style={styles.uploadedImage} />
+                ) : (
+                  <View style={styles.uploadPlaceholder}>
+                    <Ionicons name="camera" size={32} color={Colors.neutral[400]} />
+                    <Text style={styles.uploadText}>Upload ID Back</Text>
                     </View>
-                    <Text style={styles.checkboxLabel}>I can work weekends</Text>
+                )}
                   </TouchableOpacity>
+            </View>
+          </View>
+        </View>
 
+        {/* Skill Verification - Optional */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Skill Verification (Optional)</Text>
+          <Text style={styles.sectionSubtitle}>Add certificates or documents to verify your skills</Text>
+          
+          {formData.skillVerifications.map((verification, index) => (
+            <View key={index} style={styles.skillVerificationItem}>
+              <View style={styles.skillVerificationHeader}>
+                <Text style={styles.skillVerificationTitle}>Skill Verification {index + 1}</Text>
                   <TouchableOpacity
-                    style={styles.checkboxRow}
-                    onPress={() => setFormData(prev => ({ ...prev, canWorkEvenings: !prev.canWorkEvenings }))}
+                  onPress={() => removeSkillVerification(index)}
+                  style={styles.removeButton}
                   >
-                    <View style={[styles.checkbox, formData.canWorkEvenings && styles.checkboxActive]}>
-                      {formData.canWorkEvenings && <Ionicons name="checkmark" size={16} color="#fff" />}
-                    </View>
-                    <Text style={styles.checkboxLabel}>I can work evenings</Text>
+                  <Ionicons name="close-circle" size={20} color={Colors.neutral[400]} />
                   </TouchableOpacity>
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Maximum Travel Distance</Text>
-                  <View style={styles.inputContainer}>
+                <Text style={styles.label}>Skill</Text>
                     <TextInput
                       style={styles.input}
-                      placeholder="10"
-                      placeholderTextColor={Colors.neutral[400]}
-                      value={formData.maxDistance}
-                      onChangeText={(text) => setFormData(prev => ({ ...prev, maxDistance: text }))}
-                      keyboardType="numeric"
-                    />
-                    <Text style={styles.currencyText}>miles</Text>
-                  </View>
-                </View>
+                  value={verification.skill}
+                  onChangeText={(text) => updateSkillVerification(index, 'skill', text)}
+                  placeholder="e.g., Photography, Plumbing"
+                />
               </View>
-
-              {/* Additional Information */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Additional Information</Text>
                 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Languages</Text>
-                  <Text style={styles.helperText}>What languages do you speak?</Text>
-                  <View style={styles.skillsContainer}>
-                    {['English', 'Amharic', 'Tigrinya', 'Oromo', 'Spanish', 'French'].map((language) => (
+                <Text style={styles.label}>Proficiency Level</Text>
+                <View style={styles.levelButtons}>
+                  {['beginner', 'intermediate', 'advanced', 'expert'].map((level) => (
                       <TouchableOpacity
-                        key={language}
+                      key={level}
                         style={[
-                          styles.skillChip,
-                          formData.languages.includes(language) && styles.skillChipActive
+                        styles.levelButton,
+                        verification.level === level && styles.levelButtonSelected
                         ]}
-                        onPress={() => handleLanguageToggle(language)}
+                      onPress={() => updateSkillVerification(index, 'level', level)}
                       >
                         <Text style={[
-                          styles.skillChipText,
-                          formData.languages.includes(language) && styles.skillChipTextActive
+                        styles.levelButtonText,
+                        verification.level === level && styles.levelButtonTextSelected
                         ]}>
-                          {language}
+                        {level.charAt(0).toUpperCase() + level.slice(1)}
                         </Text>
                       </TouchableOpacity>
                     ))}
@@ -445,163 +433,49 @@ export default function TaskerApplication() {
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Certifications & Documents</Text>
-                  <Text style={styles.helperText}>Upload your certifications, licenses, and ID documents</Text>
-                  
-                  <View style={styles.fileUploadSection}>
-                    <TouchableOpacity style={styles.fileUploadButton}>
-                      <Ionicons name="cloud-upload-outline" size={24} color={Colors.primary[500]} />
-                      <Text style={styles.fileUploadText}>Upload Certifications</Text>
-                    </TouchableOpacity>
-                    
-                    <TouchableOpacity style={styles.fileUploadButton}>
-                      <Ionicons name="card-outline" size={24} color={Colors.primary[500]} />
-                      <Text style={styles.fileUploadText}>Upload ID (Front)</Text>
-                    </TouchableOpacity>
-                    
-                    <TouchableOpacity style={styles.fileUploadButton}>
-                      <Ionicons name="card-outline" size={24} color={Colors.primary[500]} />
-                      <Text style={styles.fileUploadText}>Upload ID (Back)</Text>
-                    </TouchableOpacity>
-                  </View>
-                  
-                  <TextInput
-                    style={[styles.input, styles.textArea]}
-                    placeholder="List any certifications, licenses, or qualifications..."
-                    placeholderTextColor={Colors.neutral[400]}
-                    value={formData.certifications}
-                    onChangeText={(text) => setFormData(prev => ({ ...prev, certifications: text }))}
-                    multiline
-                    numberOfLines={2}
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Portfolio/Website</Text>
-                  <Text style={styles.helperText}>Link to your portfolio or website (optional)</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="https://yourportfolio.com"
-                    placeholderTextColor={Colors.neutral[400]}
-                    value={formData.portfolio}
-                    onChangeText={(text) => setFormData(prev => ({ ...prev, portfolio: text }))}
-                    keyboardType="url"
-                    autoCapitalize="none"
-                  />
-                </View>
-              </View>
-
-              {/* Personal Details */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Personal Details</Text>
+                <Text style={styles.label}>Supporting Documents (up to 5)</Text>
+                <Text style={styles.helperText}>Upload certificates, licenses, or other proof of skill</Text>
                 
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Date of Birth *</Text>
+                <View style={styles.documentsContainer}>
+                  {verification.documents.map((doc, docIndex) => (
+                    <View key={docIndex} style={styles.documentItem}>
+                      <Image source={{ uri: doc }} style={styles.documentImage} />
+                      <TouchableOpacity 
+                        style={styles.removeDocumentButton}
+                        onPress={() => removeSkillDocument(index, docIndex)}
+                      >
+                        <Ionicons name="close-circle" size={20} color={Colors.neutral[400]} />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                  
+                  {verification.documents.length < 5 && (
+                    <TouchableOpacity 
+                      style={styles.addDocumentButton}
+                      onPress={() => handleSkillDocumentUpload(index)}
+                    >
+                      <Ionicons name="add" size={24} color={Colors.primary[500]} />
+                      <Text style={styles.addDocumentText}>Add Document</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {verification.documents.length > 0 && (
+                  <Text style={styles.documentCount}>
+                    {verification.documents.length}/5 documents uploaded
+                  </Text>
+                )}
+              </View>
+            </View>
+          ))}
+          
                   <TouchableOpacity 
-                    style={styles.input}
-                    onPress={() => setShowDatePicker(true)}
+            style={styles.addSkillButton}
+            onPress={addSkillVerification}
                   >
-                    <Text style={styles.dateText}>
-                      {dateOfBirth.toLocaleDateString()}
-                    </Text>
+            <Ionicons name="add" size={20} color={Colors.primary[500]} />
+            <Text style={styles.addSkillText}>Add Skill Verification</Text>
                   </TouchableOpacity>
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Years of Experience</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="0"
-                    placeholderTextColor={Colors.neutral[400]}
-                    value={formData.yearsOfExperience}
-                    onChangeText={(text) => setFormData(prev => ({ ...prev, yearsOfExperience: text }))}
-                    keyboardType="numeric"
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Address *</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Enter your address"
-                    placeholderTextColor={Colors.neutral[400]}
-                    value={formData.address}
-                    onChangeText={(text) => setFormData(prev => ({ ...prev, address: text }))}
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>City *</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Enter your city"
-                    placeholderTextColor={Colors.neutral[400]}
-                    value={formData.city}
-                    onChangeText={(text) => setFormData(prev => ({ ...prev, city: text }))}
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>State *</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Enter your state"
-                    placeholderTextColor={Colors.neutral[400]}
-                    value={formData.state}
-                    onChangeText={(text) => setFormData(prev => ({ ...prev, state: text }))}
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Zip Code *</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Enter your zip code"
-                    placeholderTextColor={Colors.neutral[400]}
-                    value={formData.zipCode}
-                    onChangeText={(text) => setFormData(prev => ({ ...prev, zipCode: text }))}
-                    keyboardType="numeric"
-                  />
-                </View>
-              </View>
-
-              {/* Emergency Contact */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Emergency Contact</Text>
-                
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Emergency Contact Name *</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Enter emergency contact name"
-                    placeholderTextColor={Colors.neutral[400]}
-                    value={formData.emergencyContactName}
-                    onChangeText={(text) => setFormData(prev => ({ ...prev, emergencyContactName: text }))}
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Emergency Contact Phone *</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Enter emergency contact phone"
-                    placeholderTextColor={Colors.neutral[400]}
-                    value={formData.emergencyContactPhone}
-                    onChangeText={(text) => setFormData(prev => ({ ...prev, emergencyContactPhone: text }))}
-                    keyboardType="phone-pad"
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Relationship *</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="e.g., Spouse, Parent, Sibling"
-                    placeholderTextColor={Colors.neutral[400]}
-                    value={formData.emergencyContactRelationship}
-                    onChangeText={(text) => setFormData(prev => ({ ...prev, emergencyContactRelationship: text }))}
-                  />
-                </View>
               </View>
 
               {/* Submit Button */}
@@ -610,47 +484,11 @@ export default function TaskerApplication() {
                 onPress={handleSubmit}
                 disabled={loading}
               >
-                <Ionicons name="checkmark-circle" size={20} color="#fff" />
                 <Text style={styles.submitButtonText}>
                   {loading ? 'Submitting...' : 'Submit Application'}
                 </Text>
               </TouchableOpacity>
             </ScrollView>
-
-            {/* Date of Birth Picker */}
-            {showDatePicker && (
-              <DateTimePicker
-                value={dateOfBirth}
-                mode="date"
-                display="default"
-                onChange={(event, selectedDate) => {
-                  setShowDatePicker(false)
-                  if (selectedDate) {
-                    setDateOfBirth(selectedDate)
-                  }
-                }}
-                maximumDate={new Date()}
-              />
-            )}
-
-            {/* Availability Date Picker */}
-            {showAvailabilityPicker && (
-              <DateTimePicker
-                value={availabilityDate}
-                mode="date"
-                display="default"
-                onChange={(event, selectedDate) => {
-                  setShowAvailabilityPicker(false)
-                  if (selectedDate) {
-                    setAvailabilityDate(selectedDate)
-                  }
-                }}
-                minimumDate={new Date()}
-              />
-            )}
-          </View>
-        </TouchableWithoutFeedback>
-      </KeyboardAvoidingView>
     </SafeAreaView>
   )
 }
@@ -658,225 +496,265 @@ export default function TaskerApplication() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background.secondary,
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
+    backgroundColor: Colors.neutral[50],
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.background.primary,
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 24,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    paddingVertical: 16,
+    backgroundColor: Colors.neutral[50],
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.neutral[200],
   },
   backButton: {
     padding: 8,
-    marginRight: 12,
   },
-  headerTitle: {
-    flex: 1,
-    fontSize: 20,
-    fontWeight: 'bold',
+  title: {
+    fontSize: 18,
+    fontWeight: '600',
     color: Colors.neutral[900],
-    textAlign: 'center',
   },
   placeholder: {
     width: 40,
   },
-  form: {
+  content: {
     flex: 1,
-    paddingHorizontal: 20,
+    padding: 20,
   },
-  scrollContent: {
-    paddingBottom: 40,
+  subtitle: {
+    fontSize: 16,
+    color: Colors.neutral[600],
+    lineHeight: 24,
+    marginBottom: 24,
   },
   section: {
-    marginTop: 24,
+    marginBottom: 32,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: Colors.neutral[900],
+    marginBottom: 8,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: Colors.neutral[600],
     marginBottom: 16,
   },
   inputGroup: {
     marginBottom: 20,
   },
   label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.neutral[900],
-    marginBottom: 8,
-  },
-  helperText: {
-    fontSize: 12,
-    color: Colors.neutral[500],
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.neutral[700],
     marginBottom: 8,
   },
   input: {
-    backgroundColor: Colors.background.primary,
+    backgroundColor: Colors.neutral[100],
     borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: Colors.border.primary,
+    padding: 16,
     fontSize: 16,
     color: Colors.neutral[900],
+    borderWidth: 1,
+    borderColor: Colors.neutral[200],
   },
   textArea: {
     height: 100,
     textAlignVertical: 'top',
   },
-  characterCount: {
-    fontSize: 12,
-    color: Colors.neutral[500],
-    textAlign: 'right',
-    marginTop: 4,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.background.primary,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: Colors.border.primary,
-  },
-  currencySymbol: {
-    fontSize: 16,
-    color: Colors.neutral[600],
-    marginRight: 4,
-  },
-  currencyText: {
-    fontSize: 16,
-    color: Colors.neutral[600],
-    marginLeft: 4,
-  },
   skillsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 12,
   },
-  skillChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+  skillButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderRadius: 20,
+    backgroundColor: Colors.neutral[100],
     borderWidth: 1,
-    borderColor: Colors.border.primary,
-    backgroundColor: Colors.background.primary,
+    borderColor: Colors.neutral[300],
   },
-  skillChipActive: {
+  skillButtonSelected: {
     backgroundColor: Colors.primary[500],
     borderColor: Colors.primary[500],
   },
-  skillChipText: {
+  skillText: {
     fontSize: 14,
-    color: Colors.neutral[700],
     fontWeight: '500',
-  },
-  skillChipTextActive: {
-    color: '#fff',
-  },
-  checkboxGroup: {
-    gap: 12,
-  },
-  checkboxRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: Colors.border.primary,
-    backgroundColor: Colors.background.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkboxActive: {
-    backgroundColor: Colors.primary[500],
-    borderColor: Colors.primary[500],
-  },
-  checkboxLabel: {
-    fontSize: 16,
     color: Colors.neutral[700],
+  },
+  skillTextSelected: {
+    color: Colors.neutral[50],
   },
   submitButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
     backgroundColor: Colors.primary[500],
-    paddingVertical: 16,
     borderRadius: 12,
-    marginVertical: 32,
+    padding: 16,
+    alignItems: 'center',
+    marginTop: 20,
     marginBottom: 40,
-    gap: 8,
-    shadowColor: Colors.primary[500],
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
   },
   submitButtonDisabled: {
     backgroundColor: Colors.neutral[300],
-    shadowOpacity: 0,
-    elevation: 0,
   },
   submitButtonText: {
-    color: '#fff',
-    fontSize: 18,
+    color: Colors.neutral[50],
+    fontSize: 16,
     fontWeight: '600',
   },
-  fileUploadSection: {
-    gap: 12,
+  // ID Upload Styles
+  idUploadContainer: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  idUploadItem: {
+    flex: 1,
+  },
+  uploadButton: {
+    borderWidth: 2,
+    borderColor: Colors.neutral[300],
+    borderStyle: 'dashed',
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.neutral[50],
+  },
+  uploadPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  uploadText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: Colors.neutral[600],
+    textAlign: 'center',
+  },
+  uploadedImage: {
+    width: 120,
+    height: 80,
+    borderRadius: 8,
+  },
+  // Skill Verification Styles
+  skillVerificationItem: {
+    backgroundColor: Colors.neutral[50],
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: Colors.neutral[200],
+  },
+  skillVerificationHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 16,
   },
-  fileUploadButton: {
+  skillVerificationTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.neutral[900],
+  },
+  removeButton: {
+    padding: 4,
+  },
+  levelButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  levelButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: Colors.neutral[100],
+    borderWidth: 1,
+    borderColor: Colors.neutral[300],
+  },
+  levelButtonSelected: {
+    backgroundColor: Colors.primary[500],
+    borderColor: Colors.primary[500],
+  },
+  levelButtonText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: Colors.neutral[700],
+  },
+  levelButtonTextSelected: {
+    color: Colors.neutral[50],
+  },
+  addSkillButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.primary[50],
-    borderWidth: 2,
-    borderColor: Colors.primary[200],
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.primary[500],
     borderStyle: 'dashed',
     borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    gap: 8,
+    backgroundColor: Colors.primary[50],
   },
-  fileUploadText: {
+  addSkillText: {
+    marginLeft: 8,
     fontSize: 14,
-    color: Colors.primary[600],
     fontWeight: '500',
+    color: Colors.primary[500],
   },
-  dateText: {
-    fontSize: 16,
-    color: Colors.neutral[700],
-    flex: 1,
+  // Document Upload Styles
+  helperText: {
+    fontSize: 12,
+    color: Colors.neutral[500],
+    marginBottom: 12,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  documentsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  documentItem: {
+    position: 'relative',
+    width: 80,
+    height: 60,
+  },
+  documentImage: {
+    width: 80,
+    height: 60,
+    borderRadius: 8,
+    backgroundColor: Colors.neutral[100],
+  },
+  removeDocumentButton: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: Colors.neutral[50],
+    borderRadius: 10,
+    padding: 2,
+  },
+  addDocumentButton: {
+    width: 80,
+    height: 60,
+    borderWidth: 1,
+    borderColor: Colors.primary[500],
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    backgroundColor: Colors.primary[50],
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  loadingText: {
-    fontSize: 16,
+  addDocumentText: {
+    fontSize: 10,
+    color: Colors.primary[500],
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  documentCount: {
+    fontSize: 12,
     color: Colors.neutral[600],
-    marginTop: 10,
+    textAlign: 'right',
+    marginTop: 8,
   },
 })

@@ -85,7 +85,7 @@ export default function ReviewScreen() {
       Alert.alert('Success', 'Review submitted successfully!', [
         {
           text: 'OK',
-          onPress: () => router.push('/jobs')
+          onPress: () => router.back()
         }
       ])
     } catch (error) {
@@ -108,7 +108,7 @@ export default function ReviewScreen() {
             <View style={styles.header}>
               <TouchableOpacity 
                 style={styles.backButton}
-                onPress={() => router.push('/jobs')}
+                onPress={() => router.back()}
               >
                 <Ionicons name="arrow-back" size={24} color={Colors.neutral[900]} />
               </TouchableOpacity>

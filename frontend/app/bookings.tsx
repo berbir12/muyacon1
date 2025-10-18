@@ -92,10 +92,16 @@ export default function Bookings() {
     }
     
     try {
-      const fetchedBookings = await BookingService.getUserBookings(user.id)
+      console.log('🚀 BOOKINGS PAGE - User object:', {
+        id: user.id,
+        user_id: user.user_id,
+        full_name: user.full_name,
+        role: user.role
+      })
+      const fetchedBookings = await BookingService.getUserBookings(user.user_id)
       setBookings(fetchedBookings)
     } catch (error) {
-      console.error('Error loading bookings:', error)
+      console.error('🚀 BOOKINGS PAGE - Error loading bookings:', error)
       Alert.alert('Error', 'Failed to load bookings')
     } finally {
       if (isRefresh) {
@@ -138,6 +144,13 @@ export default function Bookings() {
     if (!user?.id) return
 
     try {
+      console.log('🚀 BOOKINGS - Starting chat for booking:', {
+        bookingId: booking.id,
+        customerId: booking.customer_id,
+        technicianId: booking.technician_id,
+        userMode: user.current_mode
+      })
+
       // Get or create chat for this booking
       const chatId = await BookingService.getOrCreateChatForBooking(
         booking.id,
@@ -145,14 +158,18 @@ export default function Bookings() {
         booking.technician_id
       )
 
+      console.log('🚀 BOOKINGS - Chat ID result:', chatId)
+
       if (chatId) {
         // Navigate to chat with the chat ID
+        console.log('🚀 BOOKINGS - Navigating to chat:', `/chat-detail?chatId=${chatId}&bookingId=${booking.id}`)
         router.push(`/chat-detail?chatId=${chatId}&bookingId=${booking.id}`)
       } else {
+        console.log('🚀 BOOKINGS - No chat ID returned')
         Alert.alert('Error', 'Failed to create chat')
       }
     } catch (error) {
-      console.error('Error creating chat:', error)
+      console.error('🚀 BOOKINGS - Error creating chat:', error)
       Alert.alert('Error', 'Failed to create chat')
     }
   }
@@ -347,25 +364,6 @@ export default function Bookings() {
 
                 {booking.status === 'confirmed' && user?.current_mode === 'tasker' && (
                   <TouchableOpacity
-                    style={[styles.actionButton, styles.startButton]}
-                    onPress={() => {
-                      Alert.alert(
-                        'Start Task',
-                        'Are you ready to start working on this task?',
-                        [
-                          { text: 'Cancel', style: 'cancel' },
-                          { text: 'Start', onPress: () => updateBookingStatus(booking.id, 'in_progress') }
-                        ]
-                      )
-                    }}
-                  >
-                    <Ionicons name="play" size={18} color="#fff" />
-                    <Text style={styles.actionButtonText}>Start Task</Text>
-                  </TouchableOpacity>
-                )}
-                
-                {booking.status === 'in_progress' && user?.current_mode === 'tasker' && (
-                  <TouchableOpacity
                     style={[styles.actionButton, styles.completeButton]}
                     onPress={() => {
                       Alert.alert(
@@ -379,7 +377,7 @@ export default function Bookings() {
                     }}
                   >
                     <Ionicons name="checkmark-circle" size={18} color="#fff" />
-                    <Text style={styles.actionButtonText}>Mark Complete</Text>
+                    <Text style={styles.actionButtonText}>Complete Task</Text>
                   </TouchableOpacity>
                 )}
 

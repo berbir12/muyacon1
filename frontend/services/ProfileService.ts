@@ -136,7 +136,8 @@ export class ProfileService {
   }
 
   // Create user profile after phone verification
-  static async createUserProfile(userId: string, phone: string, fullName: string, username?: string): Promise<Profile | null> {
+  // DEPRECATED: Profile creation is now handled only in SimpleAuthContext after OTP verification
+  static async createUserProfile_DEPRECATED(userId: string, phone: string, fullName: string, username?: string): Promise<Profile | null> {
     try {
       const generatedUsername = username || `user_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`
       

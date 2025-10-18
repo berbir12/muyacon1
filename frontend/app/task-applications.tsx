@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Modal, Image } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useAuth } from '../contexts/SimpleAuthContext'
 import { TaskApplicationService, TaskApplication } from '../services/TaskApplicationService'
+import { ProfileService } from '../services/ProfileService'
 import Colors from '../constants/Colors'
 
 export default function TaskApplications() {
@@ -13,6 +14,9 @@ export default function TaskApplications() {
   const { taskId } = useLocalSearchParams()
   const [applications, setApplications] = useState<TaskApplication[]>([])
   const [loading, setLoading] = useState(true)
+  const [profileModalVisible, setProfileModalVisible] = useState(false)
+  const [selectedTaskerProfile, setSelectedTaskerProfile] = useState<any>(null)
+  const [profileLoading, setProfileLoading] = useState(false)
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -98,6 +102,27 @@ export default function TaskApplications() {
     )
   }
 
+  const handleViewProfile = async (taskerId: string) => {
+    try {
+      setProfileLoading(true)
+      setProfileModalVisible(true)
+      
+      const profile = await ProfileService.getProfile(taskerId)
+      setSelectedTaskerProfile(profile)
+    } catch (error) {
+      console.error('Error loading profile:', error)
+      Alert.alert('Error', 'Failed to load tasker profile')
+      setProfileModalVisible(false)
+    } finally {
+      setProfileLoading(false)
+    }
+  }
+
+  const closeProfileModal = () => {
+    setProfileModalVisible(false)
+    setSelectedTaskerProfile(null)
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return Colors.warning[500]
@@ -122,7 +147,7 @@ export default function TaskApplications() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.replace('/jobs')} style={styles.backButton}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color={Colors.neutral[900]} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Applications</Text>
@@ -139,7 +164,7 @@ export default function TaskApplications() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.replace('/jobs')} style={styles.backButton}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={Colors.neutral[900]} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Applications</Text>
@@ -194,6 +219,17 @@ export default function TaskApplications() {
                   </View>
                 )}
 
+                {/* View Profile Button */}
+                <View style={styles.profileButtonContainer}>
+                  <TouchableOpacity
+                    style={styles.viewProfileButton}
+                    onPress={() => handleViewProfile(application.tasker_id)}
+                  >
+                    <Ionicons name="person-outline" size={16} color={Colors.primary[500]} />
+                    <Text style={styles.viewProfileButtonText}>View Profile</Text>
+                  </TouchableOpacity>
+                </View>
+
                 {application.status === 'pending' && (
                   <View style={styles.actionButtons}>
                     <TouchableOpacity
@@ -217,6 +253,110 @@ export default function TaskApplications() {
           </View>
         )}
       </ScrollView>
+
+      {/* Tasker Profile Modal */}
+      <Modal
+        visible={profileModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={closeProfileModal}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={closeProfileModal} style={styles.closeButton}>
+              <Ionicons name="close" size={24} color={Colors.neutral[600]} />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Tasker Profile</Text>
+            <View style={styles.placeholder} />
+          </View>
+
+          <ScrollView style={styles.modalContent}>
+            {profileLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={Colors.primary[500]} />
+                <Text style={styles.loadingText}>Loading profile...</Text>
+              </View>
+            ) : selectedTaskerProfile ? (
+              <View>
+                {/* Profile Header */}
+                <View style={styles.profileHeader}>
+                  <View style={styles.profileAvatar}>
+                    {selectedTaskerProfile.avatar_url ? (
+                      <Image 
+                        source={{ uri: selectedTaskerProfile.avatar_url }} 
+                        style={styles.avatarImage}
+                      />
+                    ) : (
+                      <Text style={styles.avatarText}>
+                        {selectedTaskerProfile.full_name?.charAt(0)?.toUpperCase() || 'T'}
+                      </Text>
+                    )}
+                  </View>
+                  <View style={styles.profileInfo}>
+                    <Text style={styles.profileName}>{selectedTaskerProfile.full_name || 'Unknown'}</Text>
+                    <Text style={styles.profileRole}>{selectedTaskerProfile.role || 'Tasker'}</Text>
+                    {selectedTaskerProfile.rating && (
+                      <View style={styles.ratingContainer}>
+                        <Ionicons name="star" size={16} color={Colors.warning[500]} />
+                        <Text style={styles.ratingText}>{selectedTaskerProfile.rating.toFixed(1)}</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+
+                {/* Profile Details */}
+                <View style={styles.profileDetails}>
+                  {selectedTaskerProfile.bio && (
+                    <View style={styles.detailSection}>
+                      <Text style={styles.detailLabel}>Bio</Text>
+                      <Text style={styles.detailText}>{selectedTaskerProfile.bio}</Text>
+                    </View>
+                  )}
+
+                  {selectedTaskerProfile.skills && selectedTaskerProfile.skills.length > 0 && (
+                    <View style={styles.detailSection}>
+                      <Text style={styles.detailLabel}>Skills</Text>
+                      <View style={styles.skillsContainer}>
+                        {selectedTaskerProfile.skills.map((skill: string, index: number) => (
+                          <View key={index} style={styles.skillTag}>
+                            <Text style={styles.skillText}>{skill}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+
+                  {selectedTaskerProfile.experience_years && (
+                    <View style={styles.detailSection}>
+                      <Text style={styles.detailLabel}>Experience</Text>
+                      <Text style={styles.detailText}>{selectedTaskerProfile.experience_years} years</Text>
+                    </View>
+                  )}
+
+                  {selectedTaskerProfile.location && (
+                    <View style={styles.detailSection}>
+                      <Text style={styles.detailLabel}>Location</Text>
+                      <Text style={styles.detailText}>{selectedTaskerProfile.location}</Text>
+                    </View>
+                  )}
+
+                  {selectedTaskerProfile.total_tasks && (
+                    <View style={styles.detailSection}>
+                      <Text style={styles.detailLabel}>Tasks Completed</Text>
+                      <Text style={styles.detailText}>{selectedTaskerProfile.total_tasks}</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            ) : (
+              <View style={styles.errorContainer}>
+                <Ionicons name="person-outline" size={48} color={Colors.neutral[400]} />
+                <Text style={styles.errorText}>Profile not found</Text>
+              </View>
+            )}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   )
 }
@@ -410,5 +550,164 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#fff',
+  },
+  // Profile Button Styles
+  profileButtonContainer: {
+    marginVertical: 12,
+  },
+  viewProfileButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: Colors.primary[50],
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.primary[200],
+  },
+  viewProfileButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.primary[500],
+    marginLeft: 6,
+  },
+  // Modal Styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: Colors.neutral[50],
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.neutral[200],
+    backgroundColor: '#fff',
+  },
+  closeButton: {
+    padding: 4,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.neutral[900],
+  },
+  placeholder: {
+    width: 32,
+  },
+  modalContent: {
+    flex: 1,
+    padding: 20,
+  },
+  // Profile Header Styles
+  profileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 12,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  profileAvatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.primary[100],
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  avatarImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+  },
+  avatarText: {
+    fontSize: 32,
+    fontWeight: '600',
+    color: Colors.primary[600],
+  },
+  profileInfo: {
+    flex: 1,
+  },
+  profileName: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: Colors.neutral[900],
+    marginBottom: 4,
+  },
+  profileRole: {
+    fontSize: 16,
+    color: Colors.neutral[600],
+    marginBottom: 8,
+  },
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  ratingText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: Colors.neutral[700],
+    marginLeft: 4,
+  },
+  // Profile Details Styles
+  profileDetails: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  detailSection: {
+    marginBottom: 20,
+  },
+  detailLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.neutral[900],
+    marginBottom: 8,
+  },
+  detailText: {
+    fontSize: 14,
+    color: Colors.neutral[700],
+    lineHeight: 20,
+  },
+  skillsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  skillTag: {
+    backgroundColor: Colors.primary[100],
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  skillText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: Colors.primary[700],
+  },
+  errorContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  errorText: {
+    fontSize: 16,
+    color: Colors.neutral[600],
+    marginTop: 12,
   },
 })

@@ -1,5 +1,6 @@
 import * as ImagePicker from 'expo-image-picker'
 import { Alert } from 'react-native'
+import { supabase } from '../lib/supabase'
 
 export interface ImageUploadResult {
   url: string
@@ -45,7 +46,7 @@ export class ImageService {
       }
 
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ImagePicker.MediaType.Images,
         allowsEditing: options?.allowsEditing ?? true,
         aspect: options?.aspect ?? [4, 3],
         quality: options?.quality ?? 0.8,
@@ -78,7 +79,7 @@ export class ImageService {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ImagePicker.MediaType.Images,
         allowsEditing: options?.allowsMultipleSelection ? false : (options?.allowsEditing ?? true),
         aspect: options?.aspect ?? [4, 3],
         quality: options?.quality ?? 0.8,
@@ -160,20 +161,50 @@ export class ImageService {
     return await this.takePhoto(options)
   }
 
-  // Upload image to storage
+  // Upload image to Supabase Storage
   static async uploadImage(fileUri: string, folder: string = 'images'): Promise<{ success: boolean; url?: string; error?: string }> {
     try {
-      // For now, return the local URI as the URL
-      // In a real app, you would upload to cloud storage (AWS S3, Cloudinary, etc.)
+      // Create a unique filename
+      const timestamp = Date.now()
+      const randomId = Math.random().toString(36).substring(2, 15)
+      const fileExtension = fileUri.split('.').pop() || 'jpg'
+      const fileName = `${timestamp}_${randomId}.${fileExtension}`
+      const filePath = `${folder}/${fileName}`
+
+      // For Expo, we'll use a simple approach with fetch and FormData
+      const formData = new FormData()
+      formData.append('file', {
+        uri: fileUri,
+        type: 'image/jpeg',
+        name: fileName,
+      } as any)
+
+      // Upload to Supabase Storage using the direct upload method
+      const { data, error } = await supabase.storage
+        .from('tasker-documents')
+        .upload(filePath, formData, {
+          contentType: 'image/jpeg',
+          upsert: false
+        })
+
+      if (error) {
+        throw error
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('tasker-documents')
+        .getPublicUrl(filePath)
+
       return {
         success: true,
-        url: fileUri
+        url: urlData.publicUrl
       }
     } catch (error) {
       console.error('Error uploading image:', error)
       return {
         success: false,
-        error: 'Failed to upload image'
+        error: error instanceof Error ? error.message : 'Failed to upload image'
       }
     }
   }

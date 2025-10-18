@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { View, Text, TouchableOpacity, Image, ScrollView, StyleSheet, Alert } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
+import * as ImagePicker from 'expo-image-picker'
 import { ImageService } from '../services/ImageService'
 import Colors from '../constants/Colors'
 
@@ -31,17 +32,42 @@ export default function MultiImageUpload({
 
       setUploading(true)
 
-      const uris = await ImageService.showImagePicker('Add Images', {
+      // Request permissions
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please grant camera roll permissions to upload images')
+        return
+      }
+
+      // Launch image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsMultipleSelection: true,
         selectionLimit: remainingSlots,
         quality: 0.8,
         aspect: [4, 3]
       })
 
-      if (uris && uris.length > 0) {
-        // For now, just use the local URIs
-        // In a real app, you'd upload to your server here
-        onImagesChange([...currentImages, ...uris])
+      if (!result.canceled && result.assets.length > 0) {
+        // Upload all selected images
+        const uploadPromises = result.assets.map(asset => 
+          ImageService.uploadImage(asset.uri, 'general-images')
+        )
+        
+        const uploadResults = await Promise.all(uploadPromises)
+        const successfulUploads = uploadResults
+          .filter(result => result.success && result.url)
+          .map(result => result.url!)
+
+        if (successfulUploads.length > 0) {
+          onImagesChange([...currentImages, ...successfulUploads])
+        }
+
+        // Show error if some uploads failed
+        const failedUploads = uploadResults.filter(result => !result.success)
+        if (failedUploads.length > 0) {
+          Alert.alert('Upload Warning', `${failedUploads.length} image(s) failed to upload. Please try again.`)
+        }
       }
     } catch (error) {
       console.error('Error adding images:', error)
