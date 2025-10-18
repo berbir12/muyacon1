@@ -85,22 +85,22 @@ export default function ChatDetail() {
 
   // Real-time chat subscription
   useEffect(() => {
-    if (chatId && user?.id && !isSubscribed) {
+    if (chat?.id && user?.id && !isSubscribed) {
       subscribeToRealtimeChat()
     }
 
     return () => {
-      if (chatId) {
-        ChatService.unsubscribeFromChat(chatId)
+      if (chat?.id) {
+        ChatService.unsubscribeFromChat(chat.id)
       }
     }
-  }, [chatId, user?.id, isSubscribed])
+  }, [chat?.id, user?.id, isSubscribed])
 
   const subscribeToRealtimeChat = async () => {
-    if (!chatId) return
+    if (!chat?.id) return
 
     try {
-      await ChatService.subscribeToChat(chatId, {
+      await ChatService.subscribeToChat(chat.id, {
         onMessage: (message) => {
           console.log('Real-time message received:', message)
           setMessages(prev => [...prev, {
@@ -108,7 +108,7 @@ export default function ChatDetail() {
             message: message.message,
             sender_id: message.sender_id,
             created_at: message.created_at,
-            sender_name: message.sender_name,
+            sender_name: message.sender?.full_name || 'Unknown',
             is_read: false,
             message_type: message.message_type || 'text',
             status: 'delivered'
@@ -225,8 +225,14 @@ export default function ChatDetail() {
       // Load messages
       const messagesData = chatId
         ? await ChatService.getChatMessagesByChatId(chatId)
-        : await ChatService.getChatMessages(taskId)
+        : await ChatService.getChatMessages(chatData.id)
       setMessages(messagesData)
+
+      // Set up real-time subscription after chat is loaded
+      if (chatData.id && user?.id) {
+        console.log('Setting up real-time subscription for chat:', chatData.id)
+        await subscribeToRealtimeChat()
+      }
 
       // Mark all messages as read when opening the chat
       if (taskId) {
@@ -268,8 +274,8 @@ export default function ChatDetail() {
       if (chatId) {
         const result = await ChatService.sendMessage(chatId, user.id, messageText)
         success = result !== null
-      } else if (taskId) {
-        success = await ChatService.sendMessageToChat(taskId, messageText, user.id)
+      } else if (chat?.id) {
+        success = await ChatService.sendMessageToChat(chat.id, messageText, user.id)
       }
       
       if (success) {
@@ -284,7 +290,7 @@ export default function ChatDetail() {
       setTimeout(async () => {
         const messagesData = chatId
           ? await ChatService.getChatMessagesByChatId(chatId)
-          : await ChatService.getChatMessages(taskId)
+          : await ChatService.getChatMessages(chat?.id || '')
         setMessages(messagesData)
         
         // Mark the new message as read

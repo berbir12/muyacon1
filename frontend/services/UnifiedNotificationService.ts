@@ -24,6 +24,37 @@ export class UnifiedNotificationService {
   private static isSubscribed = false
   private static currentUserId: string | null = null
 
+  // Helper method to get auth user ID from profile ID
+  private static async getAuthUserIdFromProfileId(profileId: string): Promise<string | null> {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('user_id')
+        .eq('id', profileId)
+        .single()
+
+      if (error) {
+        console.error('Error getting auth user ID from profile ID:', error)
+        return null
+      }
+
+      const authUserId = data?.user_id
+      if (!authUserId) {
+        console.error('No auth user ID found for profile:', profileId)
+        return null
+      }
+
+      // Verify that the auth user ID actually exists in auth.users
+      // Note: We can't directly query auth.users from the client, so we'll skip this validation
+      // and rely on the database foreign key constraint to handle invalid user IDs
+      console.log('✅ Auth user ID validation skipped (auth.users not accessible from client):', authUserId)
+      return authUserId
+    } catch (error) {
+      console.error('Error getting auth user ID from profile ID:', error)
+      return null
+    }
+  }
+
   // Initialize notification service
   static async initialize(userId: string): Promise<void> {
     try {
@@ -226,7 +257,17 @@ export class UnifiedNotificationService {
     data?: any
   ): Promise<boolean> {
     try {
-      const { error } = await supabase
+      console.log('🚀 UNIFIED NOTIFICATION SERVICE - Creating notification in database')
+      console.log('  - User ID:', userId)
+      console.log('  - Title:', title)
+      console.log('  - Message:', message)
+      console.log('  - Type:', type)
+      console.log('  - Data:', data)
+      
+      // Note: We can't directly query auth.users from the client
+      // The database foreign key constraint will handle invalid user IDs
+      
+      const { data: result, error } = await supabase
         .from('notifications')
         .insert({
           user_id: userId,
@@ -236,13 +277,414 @@ export class UnifiedNotificationService {
           data: data || {},
           is_read: false
         })
+        .select('id')
 
-      if (error) throw error
+      if (error) {
+        console.error('❌ UNIFIED NOTIFICATION SERVICE - Database error:', error)
+        throw error
+      }
+      
+      console.log('✅ UNIFIED NOTIFICATION SERVICE - Notification created successfully:', result)
       return true
     } catch (error) {
-      console.error('Error creating notification:', error)
+      console.error('❌ UNIFIED NOTIFICATION SERVICE - Error creating notification:', error)
       return false
     }
+  }
+
+  // ===== TASK-RELATED NOTIFICATIONS =====
+
+  // Notify when a new task is posted (for taskers)
+  static async notifyNewTaskPosted(taskId: string, taskTitle: string, customerName: string, taskerIds: string[]): Promise<void> {
+    const promises = []
+    
+    for (const taskerId of taskerIds) {
+      // Convert profile ID to auth user ID
+      const authUserId = await this.getAuthUserIdFromProfileId(taskerId)
+      if (authUserId) {
+        promises.push(
+          this.createNotification(
+            authUserId,
+            'New Task Available!',
+            `${customerName} posted a new task: "${taskTitle}"`,
+            'task',
+            { task_id: taskId, action: 'new_task' }
+          )
+        )
+      } else {
+        console.error('❌ UNIFIED NOTIFICATION SERVICE - Could not get auth user ID for tasker profile:', taskerId)
+      }
+    }
+    
+    await Promise.all(promises)
+  }
+
+  // Notify when task is updated
+  static async notifyTaskUpdated(taskId: string, taskTitle: string, customerId: string, taskerId?: string): Promise<void> {
+    const promises = []
+    
+    // Convert customer profile ID to auth user ID
+    const customerAuthId = await this.getAuthUserIdFromProfileId(customerId)
+    if (customerAuthId) {
+      promises.push(
+        this.createNotification(
+          customerAuthId,
+          'Task Updated',
+          `Your task "${taskTitle}" has been updated`,
+          'task',
+          { task_id: taskId, action: 'task_updated' }
+        )
+      )
+    } else {
+      console.error('❌ UNIFIED NOTIFICATION SERVICE - Could not get auth user ID for customer profile:', customerId)
+    }
+
+    // Notify tasker if assigned
+    if (taskerId) {
+      const taskerAuthId = await this.getAuthUserIdFromProfileId(taskerId)
+      if (taskerAuthId) {
+        promises.push(
+          this.createNotification(
+            taskerAuthId,
+            'Task Updated',
+            `Task "${taskTitle}" has been updated`,
+            'task',
+            { task_id: taskId, action: 'task_updated' }
+          )
+        )
+      } else {
+        console.error('❌ UNIFIED NOTIFICATION SERVICE - Could not get auth user ID for tasker profile:', taskerId)
+      }
+    }
+
+    await Promise.all(promises)
+  }
+
+  // Notify when task is cancelled
+  static async notifyTaskCancelled(taskId: string, taskTitle: string, customerId: string, taskerId?: string): Promise<void> {
+    const promises = []
+    
+    // Convert customer profile ID to auth user ID
+    const customerAuthId = await this.getAuthUserIdFromProfileId(customerId)
+    if (customerAuthId) {
+      promises.push(
+        this.createNotification(
+          customerAuthId,
+          'Task Cancelled',
+          `Your task "${taskTitle}" has been cancelled`,
+          'task',
+          { task_id: taskId, action: 'task_cancelled' }
+        )
+      )
+    } else {
+      console.error('❌ UNIFIED NOTIFICATION SERVICE - Could not get auth user ID for customer profile:', customerId)
+    }
+
+    // Notify tasker if assigned
+    if (taskerId) {
+      const taskerAuthId = await this.getAuthUserIdFromProfileId(taskerId)
+      if (taskerAuthId) {
+        promises.push(
+          this.createNotification(
+            taskerAuthId,
+            'Task Cancelled',
+            `Task "${taskTitle}" has been cancelled`,
+            'task',
+            { task_id: taskId, action: 'task_cancelled' }
+          )
+        )
+      } else {
+        console.error('❌ UNIFIED NOTIFICATION SERVICE - Could not get auth user ID for tasker profile:', taskerId)
+      }
+    }
+
+    await Promise.all(promises)
+  }
+
+  // ===== APPLICATION-RELATED NOTIFICATIONS =====
+
+  // Notify when someone applies for a task
+  static async notifyTaskApplication(taskId: string, taskTitle: string, customerId: string, taskerName: string, applicationId: string): Promise<void> {
+    console.log('🚀 UNIFIED NOTIFICATION SERVICE - Creating task application notification')
+    console.log('  - Customer Profile ID:', customerId)
+    console.log('  - Task Title:', taskTitle)
+    console.log('  - Tasker Name:', taskerName)
+    console.log('  - Application ID:', applicationId)
+    
+    // Convert profile ID to auth user ID
+    const authUserId = await this.getAuthUserIdFromProfileId(customerId)
+    if (!authUserId) {
+      console.error('❌ UNIFIED NOTIFICATION SERVICE - Could not get auth user ID for profile:', customerId)
+      return
+    }
+    
+    console.log('  - Customer Auth User ID:', authUserId)
+    
+    const success = await this.createNotification(
+      authUserId,
+      'New Task Application',
+      `${taskerName} applied for your task: "${taskTitle}"`,
+      'application',
+      { task_id: taskId, application_id: applicationId, action: 'task_application' }
+    )
+    
+    console.log('✅ UNIFIED NOTIFICATION SERVICE - Notification creation result:', success)
+  }
+
+  // Notify when task application is accepted
+  static async notifyApplicationAccepted(taskId: string, taskTitle: string, taskerId: string, customerName: string): Promise<void> {
+    // Convert profile ID to auth user ID
+    const authUserId = await this.getAuthUserIdFromProfileId(taskerId)
+    if (!authUserId) {
+      console.error('❌ UNIFIED NOTIFICATION SERVICE - Could not get auth user ID for tasker profile:', taskerId)
+      return
+    }
+    
+    await this.createNotification(
+      authUserId,
+      'Application Accepted!',
+      `${customerName} accepted your application for "${taskTitle}"`,
+      'application',
+      { task_id: taskId, action: 'application_accepted' }
+    )
+  }
+
+  // Notify when task application is rejected
+  static async notifyApplicationRejected(taskId: string, taskTitle: string, taskerId: string, customerName: string): Promise<void> {
+    // Convert profile ID to auth user ID
+    const authUserId = await this.getAuthUserIdFromProfileId(taskerId)
+    if (!authUserId) {
+      console.error('❌ UNIFIED NOTIFICATION SERVICE - Could not get auth user ID for tasker profile:', taskerId)
+      return
+    }
+    
+    await this.createNotification(
+      authUserId,
+      'Application Not Selected',
+      `${customerName} didn't select your application for "${taskTitle}"`,
+      'application',
+      { task_id: taskId, action: 'application_rejected' }
+    )
+  }
+
+  // ===== TASKER APPLICATION NOTIFICATIONS =====
+
+  // Notify when tasker application is submitted
+  static async notifyTaskerApplicationSubmitted(applicationId: string, taskerName: string, adminIds: string[]): Promise<void> {
+    const promises = adminIds.map(adminId =>
+      this.createNotification(
+        adminId,
+        'New Tasker Application',
+        `${taskerName} submitted a tasker application`,
+        'application',
+        { application_id: applicationId, action: 'tasker_application_submitted' }
+      )
+    )
+    await Promise.all(promises)
+  }
+
+  // Notify when tasker application is approved
+  static async notifyTaskerApplicationApproved(taskerId: string, taskerName: string): Promise<void> {
+    await this.createNotification(
+      taskerId,
+      'Application Approved!',
+      `Congratulations ${taskerName}! Your tasker application has been approved`,
+      'application',
+      { action: 'tasker_application_approved' }
+    )
+  }
+
+  // Notify when tasker application is rejected
+  static async notifyTaskerApplicationRejected(taskerId: string, taskerName: string, reason?: string): Promise<void> {
+    await this.createNotification(
+      taskerId,
+      'Application Not Approved',
+      `Your tasker application was not approved${reason ? `: ${reason}` : ''}`,
+      'application',
+      { action: 'tasker_application_rejected', reason }
+    )
+  }
+
+  // ===== MESSAGE NOTIFICATIONS =====
+
+  // Notify when a new message is received
+  static async notifyNewMessage(chatId: string, senderId: string, receiverId: string, messageText: string, senderName: string): Promise<void> {
+    // Convert profile ID to auth user ID
+    const authUserId = await this.getAuthUserIdFromProfileId(receiverId)
+    if (!authUserId) {
+      console.error('❌ UNIFIED NOTIFICATION SERVICE - Could not get auth user ID for receiver profile:', receiverId)
+      return
+    }
+    
+    await this.createNotification(
+      authUserId,
+      'New Message',
+      `${senderName}: ${messageText.length > 50 ? messageText.substring(0, 50) + '...' : messageText}`,
+      'message',
+      { chat_id: chatId, sender_id: senderId, action: 'new_message' }
+    )
+  }
+
+  // ===== BOOKING NOTIFICATIONS =====
+
+  // Notify when booking is created
+  static async notifyBookingCreated(bookingId: string, taskTitle: string, customerId: string, taskerId: string, customerName: string, taskerName: string): Promise<void> {
+    // Convert profile IDs to auth user IDs
+    const [customerAuthId, taskerAuthId] = await Promise.all([
+      this.getAuthUserIdFromProfileId(customerId),
+      this.getAuthUserIdFromProfileId(taskerId)
+    ])
+
+    const promises = []
+    
+    // Notify customer
+    if (customerAuthId) {
+      promises.push(
+        this.createNotification(
+          customerAuthId,
+          'Booking Confirmed',
+          `Your booking with ${taskerName} for "${taskTitle}" is confirmed`,
+          'booking',
+          { booking_id: bookingId, action: 'booking_created' }
+        )
+      )
+    } else {
+      console.error('❌ UNIFIED NOTIFICATION SERVICE - Could not get auth user ID for customer profile:', customerId)
+    }
+    
+    // Notify tasker
+    if (taskerAuthId) {
+      promises.push(
+        this.createNotification(
+          taskerAuthId,
+          'New Booking',
+          `You have a new booking with ${customerName} for "${taskTitle}"`,
+          'booking',
+          { booking_id: bookingId, action: 'booking_created' }
+        )
+      )
+    } else {
+      console.error('❌ UNIFIED NOTIFICATION SERVICE - Could not get auth user ID for tasker profile:', taskerId)
+    }
+    
+    await Promise.all(promises)
+  }
+
+  // Notify when booking status changes
+  static async notifyBookingStatusChange(bookingId: string, taskTitle: string, customerId: string, taskerId: string, status: string, customerName: string, taskerName: string): Promise<void> {
+    const statusMessages = {
+      'in_progress': 'has started',
+      'completed': 'has been completed',
+      'cancelled': 'has been cancelled'
+    }
+
+    const message = statusMessages[status as keyof typeof statusMessages] || `status changed to ${status}`
+    const title = status === 'completed' ? 'Task Completed!' : 'Booking Update'
+
+    // Convert profile IDs to auth user IDs
+    const [customerAuthId, taskerAuthId] = await Promise.all([
+      this.getAuthUserIdFromProfileId(customerId),
+      this.getAuthUserIdFromProfileId(taskerId)
+    ])
+
+    const promises = []
+    
+    // Notify customer
+    if (customerAuthId) {
+      promises.push(
+        this.createNotification(
+          customerAuthId,
+          title,
+          `Your booking with ${taskerName} for "${taskTitle}" ${message}`,
+          'booking',
+          { booking_id: bookingId, status, action: 'booking_status_change' }
+        )
+      )
+    } else {
+      console.error('❌ UNIFIED NOTIFICATION SERVICE - Could not get auth user ID for customer profile:', customerId)
+    }
+    
+    // Notify tasker
+    if (taskerAuthId) {
+      promises.push(
+        this.createNotification(
+          taskerAuthId,
+          title,
+          `Your booking with ${customerName} for "${taskTitle}" ${message}`,
+          'booking',
+          { booking_id: bookingId, status, action: 'booking_status_change' }
+        )
+      )
+    } else {
+      console.error('❌ UNIFIED NOTIFICATION SERVICE - Could not get auth user ID for tasker profile:', taskerId)
+    }
+    
+    await Promise.all(promises)
+  }
+
+  // ===== RATING NOTIFICATIONS =====
+
+  // Notify when task is rated
+  static async notifyTaskRated(taskId: string, taskTitle: string, raterId: string, rateeId: string, rating: number, raterName: string, rateeName: string): Promise<void> {
+    // Convert profile ID to auth user ID
+    const authUserId = await this.getAuthUserIdFromProfileId(rateeId)
+    if (!authUserId) {
+      console.error('❌ UNIFIED NOTIFICATION SERVICE - Could not get auth user ID for ratee profile:', rateeId)
+      return
+    }
+    
+    await this.createNotification(
+      authUserId,
+      'New Rating Received',
+      `${raterName} rated you ${rating} stars for "${taskTitle}"`,
+      'system',
+      { task_id: taskId, rating, action: 'task_rated' }
+    )
+  }
+
+  // ===== PAYMENT NOTIFICATIONS =====
+
+  // Notify when payment is processed
+  static async notifyPaymentProcessed(userId: string, amount: number, taskTitle: string, status: 'success' | 'failed'): Promise<void> {
+    const title = status === 'success' ? 'Payment Successful' : 'Payment Failed'
+    const message = status === 'success' 
+      ? `Payment of ${amount} ETB for "${taskTitle}" was successful`
+      : `Payment of ${amount} ETB for "${taskTitle}" failed`
+
+    await this.createNotification(
+      userId,
+      title,
+      message,
+      'payment',
+      { amount, task_title: taskTitle, status, action: 'payment_processed' }
+    )
+  }
+
+  // ===== SYSTEM NOTIFICATIONS =====
+
+  // Notify for system updates
+  static async notifySystemUpdate(userId: string, title: string, message: string): Promise<void> {
+    await this.createNotification(
+      userId,
+      title,
+      message,
+      'system',
+      { action: 'system_update' }
+    )
+  }
+
+  // Notify for maintenance
+  static async notifyMaintenance(userIds: string[], title: string, message: string): Promise<void> {
+    const promises = userIds.map(userId =>
+      this.createNotification(
+        userId,
+        title,
+        message,
+        'system',
+        { action: 'maintenance' }
+      )
+    )
+    await Promise.all(promises)
   }
 
   // Delete a notification

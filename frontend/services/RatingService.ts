@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase'
 import { handleError } from '../utils/errorHandler'
+import { UnifiedNotificationService } from './UnifiedNotificationService'
 
 export interface Review {
   id: string
@@ -113,6 +114,34 @@ export class RatingService {
 
       // Update user rating summary
       await this.updateUserRatingSummary(revieweeId)
+
+      // Send notification to the person being rated
+      try {
+        // Get reviewer and reviewee names
+        const [reviewerResult, revieweeResult] = await Promise.all([
+          supabase.from('profiles').select('full_name').eq('id', reviewerId).single(),
+          supabase.from('profiles').select('full_name').eq('id', revieweeId).single()
+        ])
+
+        const reviewerName = reviewerResult.data?.full_name || 'Someone'
+        const revieweeName = revieweeResult.data?.full_name || 'Unknown'
+        const taskTitle = data.task?.title || 'a task'
+
+        await UnifiedNotificationService.notifyTaskRated(
+          taskId,
+          taskTitle,
+          reviewerId,
+          revieweeId,
+          rating,
+          reviewerName,
+          revieweeName
+        )
+
+        console.log('🚀 RATING SERVICE - Rating notification sent for task:', taskId)
+      } catch (notificationError) {
+        console.error('Error sending rating notification:', notificationError)
+        // Don't throw here - rating should be saved even if notification fails
+      }
 
       return {
         id: data.id,

@@ -14,8 +14,8 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
 import { useAuth } from '../contexts/SimpleAuthContext'
-import { SimpleNotificationService } from '../services/SimpleNotificationService'
-import { TaskService, Task } from '../services/TaskServiceFixed'
+import { useNotifications } from '../contexts/NotificationContext'
+import { TaskService, Task } from '../services/TaskService'
 import Colors from '../constants/Colors'
 
 const { width } = Dimensions.get('window')
@@ -80,19 +80,10 @@ const featuredServices = [
 
 export default function Index() {
   const { isAuthenticated, loading: isLoading, user } = useAuth()
-  const [unreadCount, setUnreadCount] = useState(0)
+  const { unreadCount } = useNotifications()
   const [featuredTasks, setFeaturedTasks] = useState<Task[]>([])
   const [recentTasks, setRecentTasks] = useState<Task[]>([])
   const [loadingTasks, setLoadingTasks] = useState(true)
-
-  const loadUnreadCount = async () => {
-    try {
-      const count = await SimpleNotificationService.getUnreadCount()
-      setUnreadCount(count)
-    } catch (error) {
-      console.error('Error loading unread count:', error)
-    }
-  }
 
   const loadTasks = async () => {
     if (!user) return
@@ -122,15 +113,7 @@ export default function Index() {
   }, [isLoading, isAuthenticated])
 
   useEffect(() => {
-    loadUnreadCount()
     loadTasks()
-    
-    // Set up real-time updates for notifications
-    const interval = setInterval(() => {
-      loadUnreadCount()
-    }, 30000) // Check every 30 seconds
-    
-    return () => clearInterval(interval)
   }, [user])
   
   if (isLoading) {

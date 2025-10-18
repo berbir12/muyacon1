@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase'
 import { handleError } from '../utils/errorHandler'
+import { UnifiedNotificationService } from './UnifiedNotificationService'
 
 export interface Task {
   id: string
@@ -264,10 +265,35 @@ export class TaskService {
 
       // Get customer name separately
       const customerResult = await supabase.from('profiles').select('full_name').eq('id', data.customer_id).maybeSingle()
+      const customerName = customerResult.data?.full_name || 'Unknown'
+
+      // Send notifications to relevant taskers
+      try {
+        // Get all active taskers (you might want to filter by location, category, etc.)
+        const { data: taskers } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('role', 'tasker')
+          .eq('is_active', true)
+
+        if (taskers && taskers.length > 0) {
+          const taskerIds = taskers.map(t => t.id)
+          await UnifiedNotificationService.notifyNewTaskPosted(
+            data.id,
+            data.title,
+            customerName,
+            taskerIds
+          )
+          console.log('🚀 TASK SERVICE - Notifications sent to taskers for new task:', data.id)
+        }
+      } catch (notificationError) {
+        console.error('Error sending task notifications:', notificationError)
+        // Don't throw here - task creation should succeed even if notifications fail
+      }
 
       return {
         ...data,
-        customer_name: customerResult.data?.full_name,
+        customer_name: customerName,
         category_name: data.category || 'Other',
         applications_count: 0
       }
@@ -293,7 +319,7 @@ export class TaskService {
       }
 
       // Create application
-      const { error } = await supabase
+      const { data: applicationData, error } = await supabase
         .from('task_applications')
         .insert([{
           task_id: taskId,
@@ -305,8 +331,42 @@ export class TaskService {
           availability_date: availabilityDate,
           status: 'pending'
         }])
+        .select('id')
+        .single()
 
       if (error) throw error
+
+      // Send notification to customer
+      try {
+        // Get task details and customer info
+        const { data: taskData } = await supabase
+          .from('tasks')
+          .select('title, customer_id')
+          .eq('id', taskId)
+          .single()
+
+        // Get tasker name
+        const { data: taskerData } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', taskerId)
+          .single()
+
+        if (taskData && taskerData && applicationData) {
+          await UnifiedNotificationService.notifyTaskApplication(
+            taskId,
+            taskData.title,
+            taskData.customer_id,
+            taskerData.full_name,
+            applicationData.id
+          )
+          console.log('🚀 TASK SERVICE - Application notification sent for task:', taskId)
+        }
+      } catch (notificationError) {
+        console.error('Error sending application notification:', notificationError)
+        // Don't throw here - application should succeed even if notification fails
+      }
+
       return true
     } catch (error) {
       console.error('Error applying to task:', error)

@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { UnifiedNotificationService } from './UnifiedNotificationService'
 
 export interface Booking {
   id: string
@@ -277,10 +278,29 @@ export class BookingService {
         supabase.from('profiles').select('full_name').eq('id', data.technician_id).single()
       ])
 
+      const customerName = customerResult.data?.full_name || 'Unknown'
+      const technicianName = technicianResult.data?.full_name || 'Unknown'
+
+      // Send notifications
+      try {
+        await UnifiedNotificationService.notifyBookingCreated(
+          data.id,
+          data.service_name,
+          data.customer_id,
+          data.technician_id,
+          customerName,
+          technicianName
+        )
+        console.log('🚀 BOOKING SERVICE - Booking notifications sent for booking:', data.id)
+      } catch (notificationError) {
+        console.error('Error sending booking notifications:', notificationError)
+        // Don't throw here - booking should succeed even if notifications fail
+      }
+
       return {
         ...data,
-        customer_name: customerResult.data?.full_name,
-        technician_name: technicianResult.data?.full_name,
+        customer_name: customerName,
+        technician_name: technicianName,
         task_title: data.service_name
       }
     } catch (error) {
@@ -321,6 +341,55 @@ export class BookingService {
           .eq('id', taskApplicationId)
 
         if (error) throw error
+
+        // Send notifications for task application status change
+        try {
+          const { data: applicationData } = await supabase
+            .from('task_applications')
+            .select('task_id, tasker_id, user_id')
+            .eq('id', taskApplicationId)
+            .single()
+
+          if (applicationData) {
+            const { data: taskData } = await supabase
+              .from('tasks')
+              .select('title, customer_id')
+              .eq('id', applicationData.task_id)
+              .single()
+
+            if (taskData) {
+              // Get names for notifications
+              const [customerResult, taskerResult] = await Promise.all([
+                supabase.from('profiles').select('full_name').eq('id', taskData.customer_id).single(),
+                supabase.from('profiles').select('full_name').eq('id', applicationData.tasker_id).single()
+              ])
+
+              const customerName = customerResult.data?.full_name || 'Unknown'
+              const taskerName = taskerResult.data?.full_name || 'Unknown'
+
+              if (status === 'confirmed') {
+                await UnifiedNotificationService.notifyApplicationAccepted(
+                  applicationData.task_id,
+                  taskData.title,
+                  applicationData.tasker_id,
+                  customerName
+                )
+              } else if (status === 'cancelled') {
+                await UnifiedNotificationService.notifyApplicationRejected(
+                  applicationData.task_id,
+                  taskData.title,
+                  applicationData.tasker_id,
+                  customerName
+                )
+              }
+
+              console.log('🚀 BOOKING SERVICE - Application status notification sent for task:', applicationData.task_id)
+            }
+          }
+        } catch (notificationError) {
+          console.error('Error sending application status notification:', notificationError)
+        }
+
         return true
       } else {
         // Handle direct bookings
@@ -335,6 +404,41 @@ export class BookingService {
           .eq('id', bookingId)
 
         if (error) throw error
+
+        // Send notifications for direct booking status change
+        try {
+          const { data: bookingData } = await supabase
+            .from('direct_bookings')
+            .select('service_name, customer_id, technician_id')
+            .eq('id', bookingId)
+            .single()
+
+          if (bookingData) {
+            // Get names for notifications
+            const [customerResult, technicianResult] = await Promise.all([
+              supabase.from('profiles').select('full_name').eq('id', bookingData.customer_id).single(),
+              supabase.from('profiles').select('full_name').eq('id', bookingData.technician_id).single()
+            ])
+
+            const customerName = customerResult.data?.full_name || 'Unknown'
+            const technicianName = technicianResult.data?.full_name || 'Unknown'
+
+            await UnifiedNotificationService.notifyBookingStatusChange(
+              bookingId,
+              bookingData.service_name,
+              bookingData.customer_id,
+              bookingData.technician_id,
+              status,
+              customerName,
+              technicianName
+            )
+
+            console.log('🚀 BOOKING SERVICE - Direct booking status notification sent for booking:', bookingId)
+          }
+        } catch (notificationError) {
+          console.error('Error sending direct booking status notification:', notificationError)
+        }
+
         return true
       }
     } catch (error) {

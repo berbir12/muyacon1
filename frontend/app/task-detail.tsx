@@ -17,7 +17,7 @@ import {
 import { Ionicons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useAuth } from '../contexts/SimpleAuthContext'
-import { TaskService, Task } from '../services/TaskServiceFixed'
+import { TaskService, Task } from '../services/TaskService'
 import { TaskApplicationService } from '../services/TaskApplicationService'
 import TaskStatusManager from '../components/TaskStatusManager'
 import Colors from '../constants/Colors'

@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase'
 import { SimpleNotificationService } from './SimpleNotificationService'
+import { UnifiedNotificationService } from './UnifiedNotificationService'
 
 export interface TaskerApplication {
   id: string
@@ -51,6 +52,27 @@ export class TaskerApplicationService {
             })
             .eq('user_id', applicationData.user_id)
 
+          // Send notification to admins about reapplication
+          try {
+            const { data: adminIds } = await supabase
+              .from('profiles')
+              .select('id')
+              .eq('role', 'admin')
+              .eq('is_active', true)
+
+            if (adminIds && adminIds.length > 0) {
+              const adminIdList = adminIds.map(admin => admin.id)
+              await UnifiedNotificationService.notifyTaskerApplicationSubmitted(
+                data.id,
+                applicationData.full_name,
+                adminIdList
+              )
+              console.log('🚀 TASKER APPLICATION SERVICE - Reapplication notification sent for:', data.id)
+            }
+          } catch (notificationError) {
+            console.error('Error sending reapplication notification:', notificationError)
+          }
+
           return {
             ...data,
             user_name: applicationData.full_name
@@ -77,6 +99,27 @@ export class TaskerApplicationService {
           updated_at: new Date().toISOString()
         })
         .eq('user_id', applicationData.user_id)
+
+      // Send notification to admins about new application
+      try {
+        const { data: adminIds } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('role', 'admin')
+          .eq('is_active', true)
+
+        if (adminIds && adminIds.length > 0) {
+          const adminIdList = adminIds.map(admin => admin.id)
+          await UnifiedNotificationService.notifyTaskerApplicationSubmitted(
+            data.id,
+            applicationData.full_name,
+            adminIdList
+          )
+          console.log('🚀 TASKER APPLICATION SERVICE - New application notification sent for:', data.id)
+        }
+      } catch (notificationError) {
+        console.error('Error sending new application notification:', notificationError)
+      }
 
       return {
         ...data,
@@ -155,8 +198,10 @@ export class TaskerApplicationService {
         // Send notifications based on application status
         if (status === 'approved') {
           await SimpleNotificationService.notifyTaskerApproved(application.user_id, application.full_name)
+          await UnifiedNotificationService.notifyTaskerApplicationApproved(application.user_id, application.full_name)
         } else if (status === 'rejected') {
           await SimpleNotificationService.notifyTaskerRejected(application.user_id, application.full_name)
+          await UnifiedNotificationService.notifyTaskerApplicationRejected(application.user_id, application.full_name)
         }
       }
 

@@ -29,6 +29,8 @@ export class RealtimeChatService {
       // Unsubscribe from existing channel if any
       this.unsubscribeFromChat(chatId)
 
+      console.log('Setting up real-time subscription for chat:', chatId)
+      
       const channel = supabase
         .channel(`chat:${chatId}`)
         .on(
@@ -36,17 +38,36 @@ export class RealtimeChatService {
           {
             event: 'INSERT',
             schema: 'public',
-            table: 'messages',
+            table: 'messages_new',
             filter: `chat_id=eq.${chatId}`
           },
           async (payload) => {
             console.log('New message received:', payload)
             
-            // Get the full message with sender details
-            const message = await ChatService.getChatMessages(chatId, 1, 0)
-            if (message.length > 0) {
-              const fullMessage = message[0] as RealtimeMessage
-              callbacks.onMessage(fullMessage)
+            // Get the specific message that was just inserted
+            const messageId = payload.new?.id
+            if (messageId) {
+              const { data: messageData } = await supabase
+                .from('messages_new')
+                .select('*')
+                .eq('id', messageId)
+                .single()
+              
+              if (messageData) {
+                // Get sender information
+                const { data: senderData } = await supabase
+                  .from('profiles')
+                  .select('id, full_name, avatar_url, phone')
+                  .eq('id', messageData.sender_id)
+                  .single()
+                
+                const fullMessage = {
+                  ...messageData,
+                  sender: senderData
+                } as RealtimeMessage
+                
+                callbacks.onMessage(fullMessage)
+              }
             }
           }
         )
@@ -55,23 +76,45 @@ export class RealtimeChatService {
           {
             event: 'UPDATE',
             schema: 'public',
-            table: 'messages',
+            table: 'messages_new',
             filter: `chat_id=eq.${chatId}`
           },
           async (payload) => {
             console.log('Message updated:', payload)
             
-            // Get the updated message
-            const message = await ChatService.getChatMessages(chatId, 1, 0)
-            if (message.length > 0) {
-              const fullMessage = message[0] as RealtimeMessage
-              callbacks.onMessage(fullMessage)
+            // Get the specific message that was updated
+            const messageId = payload.new?.id
+            if (messageId) {
+              const { data: messageData } = await supabase
+                .from('messages_new')
+                .select('*')
+                .eq('id', messageId)
+                .single()
+              
+              if (messageData) {
+                // Get sender information
+                const { data: senderData } = await supabase
+                  .from('profiles')
+                  .select('id, full_name, avatar_url, phone')
+                  .eq('id', messageData.sender_id)
+                  .single()
+                
+                const fullMessage = {
+                  ...messageData,
+                  sender: senderData
+                } as RealtimeMessage
+                
+                callbacks.onMessage(fullMessage)
+              }
             }
           }
         )
-        .subscribe()
+        .subscribe((status) => {
+          console.log('Subscription status:', status)
+        })
 
       this.channels.set(chatId, channel)
+      console.log('Real-time subscription established for chat:', chatId)
       return channel
     } catch (error) {
       console.error('Error subscribing to chat:', error)
@@ -186,12 +229,12 @@ export class RealtimeChatService {
     }
   }
 
-  // Update chat status
-  static async updateChatStatus(chatId: string, status: 'active' | 'archived' | 'blocked'): Promise<boolean> {
+  // Update chat last message info
+  static async updateChatLastMessage(chatId: string, messageText: string, senderId: string): Promise<boolean> {
     try {
-      return await ChatService.updateChatStatus(chatId, status)
+      return await ChatService.updateChatLastMessage(chatId, messageText, senderId)
     } catch (error) {
-      console.error('Error updating chat status:', error)
+      console.error('Error updating chat last message:', error)
       return false
     }
   }

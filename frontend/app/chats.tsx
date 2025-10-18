@@ -1,23 +1,18 @@
-import React, { useState, useEffect } from 'react'
+import React from 'react'
 import {
   View,
   StyleSheet,
-  Modal,
-  TouchableOpacity,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter, useFocusEffect } from 'expo-router'
 import { useAuth } from '../contexts/SimpleAuthContext'
 import ChatListComponent from '../components/ChatListComponent'
-import ChatComponent from '../components/ChatComponent'
 import Colors from '../constants/Colors'
 
 export default function Chats() {
-  const { user, isAuthenticated, isLoading } = useAuth()
+  const { isAuthenticated, isLoading } = useAuth()
   const router = useRouter()
-  const [selectedChatId, setSelectedChatId] = useState<string | null>(null)
-  const [showChatModal, setShowChatModal] = useState(false)
 
   useFocusEffect(
     React.useCallback(() => {
@@ -28,13 +23,8 @@ export default function Chats() {
   )
 
   const handleChatSelect = (chatId: string) => {
-    setSelectedChatId(chatId)
-    setShowChatModal(true)
-  }
-
-  const handleCloseChat = () => {
-    setSelectedChatId(null)
-    setShowChatModal(false)
+    // Navigate to chat-detail page instead of showing modal
+    router.push(`/chat-detail?chatId=${chatId}`)
   }
 
   if (isLoading) {
@@ -54,20 +44,6 @@ export default function Chats() {
   return (
     <SafeAreaView style={styles.container}>
       <ChatListComponent onChatSelect={handleChatSelect} />
-      
-      <Modal
-        visible={showChatModal}
-        animationType="slide"
-        presentationStyle="fullScreen"
-        onRequestClose={handleCloseChat}
-      >
-        {selectedChatId && (
-          <ChatComponent
-            chatId={selectedChatId}
-            onClose={handleCloseChat}
-          />
-        )}
-      </Modal>
     </SafeAreaView>
   )
 }

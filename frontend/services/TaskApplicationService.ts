@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase'
 import { SimpleNotificationService } from './SimpleNotificationService'
 import { PushNotificationService } from './PushNotificationService'
+import { UnifiedNotificationService } from './UnifiedNotificationService'
 
 export interface TaskApplication {
   id: string
@@ -70,6 +71,26 @@ export class TaskApplicationService {
         application.tasker_name || 'Tasker', 
         application.task_title || 'Task'
       )
+      
+      // Also send unified notification
+      console.log('🚀 TASK APPLICATION SERVICE - Sending unified notification for application:', data.id)
+      console.log('  - Task ID:', data.task_id)
+      console.log('  - Task Title:', application.task_title || 'Task')
+      console.log('  - Customer ID:', taskResult.data?.customer_id || '')
+      console.log('  - Tasker Name:', application.tasker_name || 'Tasker')
+      
+      try {
+        await UnifiedNotificationService.notifyTaskApplication(
+          data.task_id,
+          application.task_title || 'Task',
+          taskResult.data?.customer_id || '',
+          application.tasker_name || 'Tasker',
+          data.id
+        )
+        console.log('✅ TASK APPLICATION SERVICE - Unified notification sent successfully')
+      } catch (notificationError) {
+        console.error('❌ TASK APPLICATION SERVICE - Error sending unified notification:', notificationError)
+      }
       
       // Send push notification
       await PushNotificationService.createApplicationNotification(
@@ -299,6 +320,14 @@ export class TaskApplicationService {
         task?.title || 'Task',
         application.task_id
       )
+      
+      // Also send unified notification
+      await UnifiedNotificationService.notifyApplicationAccepted(
+        application.task_id,
+        task?.title || 'Task',
+        application.tasker_id,
+        customer?.full_name || 'Customer'
+      )
 
       return true
     } catch (error) {
@@ -380,6 +409,14 @@ export class TaskApplicationService {
           customer?.full_name || 'Customer',
           task?.title || 'Task',
           application.task_id
+        )
+        
+        // Also send unified notification
+        await UnifiedNotificationService.notifyApplicationRejected(
+          application.task_id,
+          task?.title || 'Task',
+          application.tasker_id,
+          customer?.full_name || 'Customer'
         )
       }
       

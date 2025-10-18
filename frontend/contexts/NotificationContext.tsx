@@ -24,19 +24,20 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   // Initialize notification service when user is authenticated
   useEffect(() => {
-    if (isAuthenticated && user?.id) {
+    if (isAuthenticated && user?.user_id) {
       initializeNotifications()
     } else {
       cleanupNotifications()
     }
-  }, [isAuthenticated, user?.id])
+  }, [isAuthenticated, user?.user_id])
 
   const initializeNotifications = async () => {
-    if (!user?.id) return
+    if (!user?.user_id) return
 
     try {
+      console.log('🚀 NOTIFICATION CONTEXT - Initializing notifications for user:', user.user_id)
       // Initialize the notification service
-      await UnifiedNotificationService.initialize(user.id)
+      await UnifiedNotificationService.initialize(user.user_id)
 
       // Add subscription for real-time updates
       const subscription = {
@@ -55,6 +56,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
       // Load initial notifications
       await refreshNotifications()
+      console.log('✅ NOTIFICATION CONTEXT - Notifications initialized successfully')
 
       // Cleanup subscription on unmount
       return () => {
@@ -76,15 +78,17 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   }
 
   const refreshNotifications = useCallback(async () => {
-    if (!user?.id) return
+    if (!user?.user_id) return
 
     setLoading(true)
     try {
+      console.log('🚀 NOTIFICATION CONTEXT - Refreshing notifications for user:', user.user_id)
       const [notificationsData, unreadCountData] = await Promise.all([
-        UnifiedNotificationService.getNotifications(user.id),
-        UnifiedNotificationService.getUnreadCount(user.id)
+        UnifiedNotificationService.getNotifications(user.user_id),
+        UnifiedNotificationService.getUnreadCount(user.user_id)
       ])
 
+      console.log('📱 NOTIFICATION CONTEXT - Loaded notifications:', notificationsData.length, 'Unread:', unreadCountData)
       setNotifications(notificationsData)
       setUnreadCount(unreadCountData)
     } catch (error) {
@@ -92,7 +96,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     } finally {
       setLoading(false)
     }
-  }, [user?.id])
+  }, [user?.user_id])
 
   const markAsRead = useCallback(async (notificationId: string) => {
     try {
@@ -109,10 +113,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   }, [])
 
   const markAllAsRead = useCallback(async () => {
-    if (!user?.id) return
+    if (!user?.user_id) return
 
     try {
-      const success = await UnifiedNotificationService.markAllAsRead(user.id)
+      const success = await UnifiedNotificationService.markAllAsRead(user.user_id)
       if (success) {
         setNotifications(prev => 
           prev.map(n => ({ ...n, is_read: true }))
@@ -122,7 +126,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     } catch (error) {
       console.error('Error marking all notifications as read:', error)
     }
-  }, [user?.id])
+  }, [user?.user_id])
 
   const deleteNotification = useCallback(async (notificationId: string) => {
     try {
@@ -141,10 +145,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   }, [notifications])
 
   const clearAllNotifications = useCallback(async () => {
-    if (!user?.id) return
+    if (!user?.user_id) return
 
     try {
-      const success = await UnifiedNotificationService.clearAllNotifications(user.id)
+      const success = await UnifiedNotificationService.clearAllNotifications(user.user_id)
       if (success) {
         setNotifications([])
         setUnreadCount(0)
@@ -152,7 +156,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     } catch (error) {
       console.error('Error clearing all notifications:', error)
     }
-  }, [user?.id])
+  }, [user?.user_id])
 
   const createNotification = useCallback(async (
     title: string, 
@@ -160,14 +164,14 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     type: Notification['type'] = 'system', 
     data?: any
   ) => {
-    if (!user?.id) return
+    if (!user?.user_id) return
 
     try {
-      await UnifiedNotificationService.createNotification(user.id, title, message, type, data)
+      await UnifiedNotificationService.createNotification(user.user_id, title, message, type, data)
     } catch (error) {
       console.error('Error creating notification:', error)
     }
-  }, [user?.id])
+  }, [user?.user_id])
 
   const value: NotificationContextType = {
     notifications,

@@ -30,11 +30,13 @@ export default function ChatListComponent({ onChatSelect }: ChatListComponentPro
   }, [])
 
   const loadChats = async () => {
-    if (!user?.user_id) return
+    if (!user?.id) return
 
     try {
       setLoading(true)
-      const userChats = await RealtimeChatService.getUserChats(user.user_id)
+      console.log('🚀 CHAT LIST - Loading chats for user:', user.id)
+      const userChats = await RealtimeChatService.getUserChats(user.id)
+      console.log('🚀 CHAT LIST - Loaded chats:', userChats)
       setChats(userChats)
     } catch (error) {
       console.error('Error loading chats:', error)
@@ -68,9 +70,20 @@ export default function ChatListComponent({ onChatSelect }: ChatListComponentPro
   const getOtherParticipant = (chat: Chat) => {
     if (!user) return null
     
-    if (chat.customer_id === user.user_id) {
+    console.log('🚀 CHAT LIST - Getting other participant:', {
+      chatCustomerId: chat.customer_id,
+      chatTaskerId: chat.tasker_id,
+      userId: user.id,
+      userRole: user.role
+    })
+    
+    if (chat.customer_id === user.id) {
+      // User is the customer, show tasker
+      console.log('🚀 CHAT LIST - User is customer, showing tasker:', chat.tasker)
       return chat.tasker
     } else {
+      // User is the tasker, show customer
+      console.log('🚀 CHAT LIST - User is tasker, showing customer:', chat.customer)
       return chat.customer
     }
   }

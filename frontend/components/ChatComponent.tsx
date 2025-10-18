@@ -55,8 +55,8 @@ export default function ChatComponent({ chatId, onClose }: ChatComponentProps) {
       setMessages(chatMessages)
       
       // Mark messages as read
-      if (user?.user_id) {
-        await RealtimeChatService.markMessagesAsRead(chatId, user.user_id)
+      if (user?.id) {
+        await RealtimeChatService.markMessagesAsRead(chatId, user.id)
       }
     } catch (error) {
       console.error('Error loading chat data:', error)
@@ -79,11 +79,11 @@ export default function ChatComponent({ chatId, onClose }: ChatComponentProps) {
   }
 
   const sendMessage = async () => {
-    if (!newMessage.trim() || !user?.user_id || sending) return
+    if (!newMessage.trim() || !user?.id || sending) return
 
     try {
       setSending(true)
-      const success = await RealtimeChatService.sendMessage(chatId, user.user_id, newMessage.trim())
+      const success = await RealtimeChatService.sendMessage(chatId, user.id, newMessage.trim())
       
       if (success) {
         setNewMessage('')
@@ -116,7 +116,7 @@ export default function ChatComponent({ chatId, onClose }: ChatComponentProps) {
         )}
         <View style={[styles.messageBubble, isOwn && styles.ownMessageBubble]}>
           <Text style={[styles.messageText, isOwn && styles.ownMessageText]}>
-            {item.content}
+            {item.message}
           </Text>
           <Text style={[styles.messageTime, isOwn && styles.ownMessageTime]}>
             {formatTime(item.created_at)}
@@ -129,7 +129,7 @@ export default function ChatComponent({ chatId, onClose }: ChatComponentProps) {
   const getOtherParticipant = () => {
     if (!chatInfo || !user) return null
     
-    if (chatInfo.customer_id === user.user_id) {
+    if (chatInfo.customer_id === user.id) {
       return chatInfo.tasker
     } else {
       return chatInfo.customer
