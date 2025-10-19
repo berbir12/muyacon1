@@ -1,6 +1,8 @@
 import { supabase } from '../lib/supabase'
 import { handleError } from '../utils/errorHandler'
 import { UnifiedNotificationService } from './UnifiedNotificationService'
+import { ChapaPaymentService, PaymentCalculation } from './ChapaPaymentService'
+import { WalletService } from './WalletService'
 
 export interface Payment {
   id: string
@@ -19,6 +21,10 @@ export interface Payment {
   task_title?: string
   customer_name?: string
   tasker_name?: string
+  // Chapa payment fields
+  tx_ref?: string
+  checkout_url?: string
+  payment_breakdown?: PaymentCalculation
 }
 
 export interface PaymentMethod {
@@ -433,6 +439,204 @@ export class PaymentService {
         pendingPayments: 0,
         completedPayments: 0,
         failedPayments: 0
+      }
+    }
+  }
+
+  // Initialize Chapa payment for a task
+  static async initializeChapaPayment(
+    taskId: string,
+    customerUserId: string,
+    customerInfo: {
+      email: string
+      firstName: string
+      lastName: string
+      phone: string
+    }
+  ): Promise<{ checkoutUrl: string; txRef: string; breakdown: PaymentCalculation } | null> {
+    try {
+      // Get task details to determine amount
+      const { data: task, error: taskError } = await supabase
+        .from('tasks')
+        .select('id, title, final_price, budget')
+        .eq('id', taskId)
+        .single()
+
+      if (taskError || !task) {
+        throw new Error('Task not found')
+      }
+
+      const amount = task.final_price || task.budget || 0
+      if (amount <= 0) {
+        throw new Error('Invalid task amount')
+      }
+
+      // Initialize Chapa payment
+      const result = await ChapaPaymentService.initializePayment(
+        taskId,
+        customerUserId,
+        amount,
+        customerInfo
+      )
+
+      if (!result) {
+        throw new Error('Failed to initialize payment')
+      }
+
+      // Calculate payment breakdown for display
+      const breakdown = ChapaPaymentService.calculatePaymentBreakdown(amount)
+
+      return {
+        checkoutUrl: result.checkoutUrl,
+        txRef: result.txRef,
+        breakdown
+      }
+    } catch (error) {
+      const appError = handleError(error, 'initializeChapaPayment')
+      console.error('Error initializing Chapa payment:', appError)
+      return null
+    }
+  }
+
+  // Verify Chapa payment status
+  static async verifyChapaPayment(txRef: string): Promise<{
+    status: string
+    amount: number
+    breakdown: any
+  } | null> {
+    try {
+      return await ChapaPaymentService.getPaymentStatus(txRef)
+    } catch (error) {
+      const appError = handleError(error, 'verifyChapaPayment')
+      console.error('Error verifying Chapa payment:', appError)
+      return null
+    }
+  }
+
+  // Process Chapa payment (called after successful payment)
+  static async processChapaPayment(txRef: string): Promise<boolean> {
+    try {
+      // Verify payment with Chapa
+      const verification = await ChapaPaymentService.verifyPayment(txRef)
+      if (!verification || verification.data.status !== 'success') {
+        throw new Error('Payment verification failed')
+      }
+
+      // Update payment status in database
+      const { error: updateError } = await supabase
+        .from('transactions')
+        .update({
+          status: 'completed',
+          updated_at: new Date().toISOString(),
+          metadata: {
+            chapa_verification: verification.data,
+            payment_gateway: 'chapa'
+          }
+        })
+        .eq('metadata->>tx_ref', txRef)
+
+      if (updateError) throw updateError
+
+      // Update task payment status
+      const { data: payment } = await supabase
+        .from('transactions')
+        .select('task_id, user_id, amount')
+        .eq('metadata->>tx_ref', txRef)
+        .single()
+
+      if (payment?.task_id) {
+        await supabase
+          .from('tasks')
+          .update({
+            payment_status: 'completed',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', payment.task_id)
+
+        // Send success notification
+        await UnifiedNotificationService.notifyPaymentProcessed(
+          payment.user_id,
+          payment.amount,
+          'Task Payment',
+          'success'
+        )
+      }
+
+      return true
+    } catch (error) {
+      const appError = handleError(error, 'processChapaPayment')
+      console.error('Error processing Chapa payment:', appError)
+      return false
+    }
+  }
+
+  // Get payment breakdown for display
+  static calculatePaymentBreakdown(amount: number): PaymentCalculation {
+    return ChapaPaymentService.calculatePaymentBreakdown(amount)
+  }
+
+  // Get tasker wallet balance
+  static async getTaskerWalletBalance(taskerUserId: string): Promise<{
+    balance: number
+    currency: string
+    isActive: boolean
+  } | null> {
+    try {
+      return await ChapaPaymentService.getTaskerWalletBalance(taskerUserId)
+    } catch (error) {
+      const appError = handleError(error, 'getTaskerWalletBalance')
+      console.error('Error getting tasker wallet balance:', appError)
+      return null
+    }
+  }
+
+  // Get tasker transaction history
+  static async getTaskerTransactionHistory(taskerUserId: string): Promise<any[]> {
+    try {
+      return await ChapaPaymentService.getTaskerTransactionHistory(taskerUserId)
+    } catch (error) {
+      const appError = handleError(error, 'getTaskerTransactionHistory')
+      console.error('Error getting tasker transaction history:', appError)
+      return []
+    }
+  }
+
+  // Request withdrawal from wallet
+  static async requestWithdrawal(
+    taskerUserId: string,
+    amount: number,
+    withdrawalMethod: 'bank_transfer' | 'mobile_money' | 'cash_pickup',
+    accountDetails: any
+  ): Promise<boolean> {
+    try {
+      return await WalletService.requestWithdrawal(
+        taskerUserId,
+        amount,
+        withdrawalMethod,
+        accountDetails
+      )
+    } catch (error) {
+      const appError = handleError(error, 'requestWithdrawal')
+      console.error('Error requesting withdrawal:', appError)
+      return false
+    }
+  }
+
+  // Get wallet details
+  static async getWalletDetails(taskerUserId: string): Promise<{
+    wallet: any
+    stats: any
+    recentTransactions: any[]
+  }> {
+    try {
+      return await WalletService.getWalletDetails(taskerUserId)
+    } catch (error) {
+      const appError = handleError(error, 'getWalletDetails')
+      console.error('Error getting wallet details:', appError)
+      return {
+        wallet: null,
+        stats: null,
+        recentTransactions: []
       }
     }
   }

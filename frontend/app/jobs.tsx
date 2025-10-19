@@ -22,7 +22,7 @@ import { SearchService, SearchFilters } from '../services/SearchService'
 import { PaymentService, Payment } from '../services/PaymentService'
 import AdvancedSearch from '../components/AdvancedSearch'
 import LoadingErrorState from '../components/LoadingErrorState'
-import PaymentModal from '../components/PaymentModal'
+import ChapaPaymentModal from '../components/ChapaPaymentModal'
 import Colors from '../constants/Colors'
 
 const { width } = Dimensions.get('window')
@@ -182,6 +182,17 @@ export default function Jobs() {
       Alert.alert('Error', 'No pending payment found for this task')
       return
     }
+
+    // Get customer info for Chapa payment
+    const customerInfo = {
+      email: user.email || 'customer@muyacon.com',
+      firstName: user.name?.split(' ')[0] || 'Customer',
+      lastName: user.name?.split(' ').slice(1).join(' ') || 'User',
+      phone: user.phone || '+251911234567'
+    }
+
+    console.log('Customer Info for Payment:', customerInfo)
+    console.log('User Data:', { email: user.email, name: user.name, phone: user.phone })
 
     setSelectedPayment(pendingPayment)
     setShowPaymentModal(true)
@@ -783,7 +794,7 @@ export default function Jobs() {
       />
 
       {/* Payment Modal */}
-      <PaymentModal
+      <ChapaPaymentModal
         visible={showPaymentModal}
         onClose={() => {
           setShowPaymentModal(false)
@@ -791,6 +802,12 @@ export default function Jobs() {
         }}
         payment={selectedPayment}
         onPaymentSuccess={handlePaymentSuccess}
+        customerInfo={{
+          email: user?.email || 'customer@muyacon.com',
+          firstName: user?.name?.split(' ')[0] || 'Customer',
+          lastName: user?.name?.split(' ').slice(1).join(' ') || 'User',
+          phone: user?.phone || '+251911234567'
+        }}
       />
     </SafeAreaView>
   )

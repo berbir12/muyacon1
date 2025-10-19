@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Muyacon Webhook Server</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            line-height: 1.6;
+            color: #333;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .status {
+            background: #f0f9ff;
+            border: 1px solid #0ea5e9;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .endpoint {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+        .success {
+            color: #059669;
+        }
+        .info {
+            color: #0ea5e9;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚀 Muyacon Webhook Server</h1>
+        <p>Payment processing webhook for Chapa integration</p>
+    </div>
+
+    <div class="status">
+        <h2 class="success">✅ Server Status: Online</h2>
+        <p>The webhook server is running and ready to receive payment notifications from Chapa.</p>
+    </div>
+
+    <h2>🔗 Available Endpoints</h2>
+    
+    <div class="endpoint">
+        <strong>GET /api/webhook</strong><br>
+        Health check and status information
+    </div>
+
+    <div class="endpoint">
+        <strong>POST /api/webhook</strong><br>
+        Chapa payment webhook endpoint
+    </div>
+
+    <h2>📋 Configuration</h2>
+    <p>Update your Chapa dashboard with:</p>
+    <div class="endpoint">
+        <strong>Webhook URL:</strong> <span id="webhook-url">Loading...</span><br>
+        <strong>Secret Hash:</strong> qwertyuil@1A
+    </div>
+
+    <h2>🧪 Testing</h2>
+    <p>Test the webhook endpoint:</p>
+    <div class="endpoint">
+        curl -X GET <span id="test-url">Loading...</span>
+    </div>
+
+    <div class="info">
+        <p><strong>Note:</strong> This server handles payment processing for the Muyacon platform. 
+        It automatically credits tasker wallets and updates payment statuses when payments are completed.</p>
+    </div>
+
+    <script>
+        // Update URLs with current domain
+        const baseUrl = window.location.origin;
+        document.getElementById('webhook-url').textContent = baseUrl + '/api/webhook';
+        document.getElementById('test-url').textContent = baseUrl + '/api/webhook';
+    </script>
+</body>
+</html>
