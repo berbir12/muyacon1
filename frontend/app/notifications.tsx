@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router'
 import { useNotifications } from '../contexts/NotificationContext'
 import { useAuth } from '../contexts/SimpleAuthContext'
 import Colors from '../constants/Colors'
+import Header from '../components/Header'
 
 export default function Notifications() {
   const router = useRouter()
@@ -155,31 +156,18 @@ export default function Notifications() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={Colors.neutral[900]} />
-        </TouchableOpacity>
-        <View style={styles.headerContent}>
-            <Text style={styles.headerTitle}>Notifications</Text>
-            {unreadCount > 0 && (
-            <Text style={styles.unreadCount}>{unreadCount} unread</Text>
-            )}
-          </View>
-        <View style={styles.headerActions}>
-          {notifications.length > 0 && (
-            <>
-          {unreadCount > 0 && (
-                <TouchableOpacity onPress={handleMarkAllAsRead} style={styles.actionButton}>
-                  <Ionicons name="checkmark-done" size={20} color={Colors.primary[500]} />
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity onPress={handleClearAll} style={styles.actionButton}>
-                <Ionicons name="trash-outline" size={20} color={Colors.error[500]} />
-            </TouchableOpacity>
-            </>
-          )}
-        </View>
-      </View>
+      <Header
+        title="Notifications"
+        subtitle={unreadCount > 0 ? `${unreadCount} unread` : undefined}
+        showBackButton={true}
+        onBackPress={() => router.push('/')}
+        rightAction={notifications.length > 0 ? {
+          icon: unreadCount > 0 ? 'checkmark-done' : 'trash-outline',
+          label: unreadCount > 0 ? 'Mark All Read' : 'Clear All',
+          onPress: unreadCount > 0 ? handleMarkAllAsRead : handleClearAll,
+          color: unreadCount > 0 ? Colors.primary[500] : Colors.error[500]
+        } : undefined}
+      />
 
       <ScrollView 
         style={styles.content}
@@ -258,42 +246,6 @@ export default function Notifications() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background.secondary,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: Colors.background.primary,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border.light,
-  },
-  backButton: {
-    padding: 4,
-  },
-  headerContent: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: Colors.neutral[900],
-  },
-  unreadCount: {
-    fontSize: 12,
-    color: Colors.primary[500],
-    marginTop: 2,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  actionButton: {
-    padding: 8,
-    borderRadius: 8,
     backgroundColor: Colors.background.secondary,
   },
   content: {

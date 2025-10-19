@@ -252,9 +252,9 @@ export class PushNotificationService {
     taskId?: string
   ): Promise<void> {
     const typeMessages = {
-      received: `You received $${amount}`,
-      sent: `You sent $${amount}`,
-      refunded: `You received a refund of $${amount}`
+      received: `You received ${amount} ETB`,
+      sent: `You sent ${amount} ETB`,
+      refunded: `You received a refund of ${amount} ETB`
     }
     
     const title = 'Payment Update'

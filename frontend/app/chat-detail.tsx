@@ -392,7 +392,7 @@ export default function ChatDetail() {
       
       {/* Modern Header */}
       <View style={styles.modernHeader}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.headerBackButton}>
+            <TouchableOpacity onPress={() => router.push('/chats')} style={styles.headerBackButton}>
               <Ionicons name="arrow-back" size={24} color="#fff" />
             </TouchableOpacity>
         

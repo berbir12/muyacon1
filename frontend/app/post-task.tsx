@@ -172,7 +172,7 @@ export default function PostTask() {
       return
     }
     if (!price.trim()) {
-      Alert.alert('Error', 'Please enter a price range')
+      Alert.alert('Error', 'Please enter a budget')
       return
     }
     if (!location.trim()) {
@@ -260,8 +260,8 @@ export default function PostTask() {
             defaultTime.setHours(0, 0, 0, 0) // Set to 12:00 AM
             setTaskTime(defaultTime)
             
-            // Redirect to Jobs tab
-            router.back()
+            // Redirect to Jobs page
+            router.push('/jobs')
           }
         }
       ])
@@ -371,12 +371,12 @@ export default function PostTask() {
               {/* Price and Location Row */}
               <View style={styles.row}>
                 <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-                  <Text style={styles.label}>Price Range *</Text>
+                  <Text style={styles.label}>Budget *</Text>
                   <View style={styles.inputContainer}>
                     <Ionicons name="cash-outline" size={20} color={Colors.neutral[400]} />
                     <TextInput
                       style={styles.input}
-                      placeholder="e.g., $50 - $100"
+                      placeholder="e.g., 500 - 1000 ETB"
                       placeholderTextColor={Colors.neutral[400]}
                       value={price}
                       onChangeText={setPrice}

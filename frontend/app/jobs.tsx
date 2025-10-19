@@ -23,6 +23,8 @@ import { PaymentService, Payment } from '../services/PaymentService'
 import AdvancedSearch from '../components/AdvancedSearch'
 import LoadingErrorState from '../components/LoadingErrorState'
 import ChapaPaymentModal from '../components/ChapaPaymentModal'
+// import RatingModal from '../components/RatingModal'
+import JobsHeader from '../components/JobsHeader'
 import Colors from '../constants/Colors'
 
 const { width } = Dimensions.get('window')
@@ -71,6 +73,8 @@ export default function Jobs() {
   const [pendingPayments, setPendingPayments] = useState<Payment[]>([])
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [showRatingModal, setShowRatingModal] = useState(false)
+  const [selectedTaskForRating, setSelectedTaskForRating] = useState<Task | null>(null)
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -185,22 +189,33 @@ export default function Jobs() {
 
     // Get customer info for Chapa payment
     const customerInfo = {
-      email: user.email || 'customer@muyacon.com',
+      email: user.profile?.email || 'customer@muyacon.com',
       firstName: user.name?.split(' ')[0] || 'Customer',
       lastName: user.name?.split(' ').slice(1).join(' ') || 'User',
       phone: user.phone || '+251911234567'
     }
 
     console.log('Customer Info for Payment:', customerInfo)
-    console.log('User Data:', { email: user.email, name: user.name, phone: user.phone })
+    console.log('User Data:', { email: user.profile?.email, name: user.name, phone: user.phone })
 
     setSelectedPayment(pendingPayment)
     setShowPaymentModal(true)
   }
 
-  const handlePaymentSuccess = () => {
+  const handlePaymentSuccess = (task: Task) => {
     loadPendingPayments() // Reload pending payments
     loadTasks() // Reload tasks to update status
+    
+    // Show rating modal for the completed task
+    setSelectedTaskForRating(task)
+    setShowRatingModal(true)
+  }
+
+  const handleRatingSubmitted = () => {
+    // Refresh tasks after rating is submitted
+    loadTasks()
+    setShowRatingModal(false)
+    setSelectedTaskForRating(null)
   }
 
   const hasPendingPayment = (task: Task) => {
@@ -355,27 +370,13 @@ export default function Jobs() {
 
     return (
       <SafeAreaView style={styles.container}>
-      {/* Header */}
-        <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <View style={styles.headerText}>
-          <Text style={styles.headerTitle}>
-              {activeTab === 'available' ? t('jobs.available') : t('jobs.my_tasks')}
-          </Text>
-            <Text style={styles.headerSubtitle}>
-              {user ? `Hi ${user.name.split(' ')[0]}!` : 'Find your next job'}
-          </Text>
-        </View>
-          <View style={styles.headerActions}>
-            <TouchableOpacity 
-              style={styles.createTaskButton}
-              onPress={() => router.push('/post-task')}
-            >
-              <Ionicons name="add" size={20} color="#fff" />
-              <Text style={styles.createTaskText}>{t('jobs.create_task')}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        {/* Header */}
+        <JobsHeader
+          title={activeTab === 'available' ? t('jobs.available') : t('jobs.my_tasks')}
+          subtitle={user ? `Hi ${user.name.split(' ')[0]}!` : 'Find your next job'}
+          onCreateTask={() => router.push('/post-task')}
+          createTaskText={t('jobs.create_task')}
+        />
 
         {/* Search Bar */}
         <View style={styles.searchContainer}>
@@ -402,7 +403,6 @@ export default function Jobs() {
             <Ionicons name="options-outline" size={20} color={Colors.primary[500]} />
             {showFilters && <View style={styles.filterBadge} />}
           </TouchableOpacity>
-            </View>
         </View>
 
         {/* Enhanced Filter Panel */}
@@ -552,7 +552,6 @@ export default function Jobs() {
           </View>
         )}
 
-
       {/* Tab Navigation */}
       <View style={styles.tabContainer}>
           <TouchableOpacity
@@ -654,7 +653,7 @@ export default function Jobs() {
         </View>
       )}
                 </View>
-                <Text style={styles.taskPrice}>${task.budget}</Text>
+                <Text style={styles.taskPrice}>{task.budget} ETB</Text>
               </View>
               
               {/* Task Description */}
@@ -758,12 +757,40 @@ export default function Jobs() {
                           <Ionicons name="card" size={16} color="#fff" />
                           <Text style={styles.actionButtonText}>Pay Now</Text>
                         </TouchableOpacity>
+                      ) : task.payment_status === 'completed' ? (
+                        <TouchableOpacity 
+                          style={[styles.actionButton, styles.rateButton]}
+                          onPress={() => {
+                            setSelectedTaskForRating(task)
+                            setShowRatingModal(true)
+                          }}
+                        >
+                          <Ionicons name="star" size={16} color="#fff" />
+                          <Text style={styles.actionButtonText}>Rate & Review</Text>
+                        </TouchableOpacity>
                       ) : (
                         <View style={styles.completedBadge}>
                           <Ionicons name="checkmark-circle" size={16} color={Colors.success[500]} />
                           <Text style={styles.completedText}>Completed & Paid</Text>
                         </View>
                       )
+                    ) : task.tasker_id ? (
+                      <TouchableOpacity 
+                        style={[styles.actionButton, styles.messageButton]}
+                        onPress={() => {
+                          router.push({
+                            pathname: '/chat-detail',
+                            params: { 
+                              taskId: task.id,
+                              taskerId: task.tasker_id,
+                              taskerName: task.tasker_name || 'Tasker'
+                            }
+                          })
+                        }}
+                      >
+                        <Ionicons name="chatbubble" size={16} color="#fff" />
+                        <Text style={styles.actionButtonText}>Message</Text>
+                      </TouchableOpacity>
                     ) : (
                       <TouchableOpacity 
                         style={styles.actionButton}
@@ -801,14 +828,38 @@ export default function Jobs() {
           setSelectedPayment(null)
         }}
         payment={selectedPayment}
-        onPaymentSuccess={handlePaymentSuccess}
+        onPaymentSuccess={(payment) => {
+          const task = payment?.task_id ? tasks.find(t => t.id === payment.task_id) : null
+          if (task) {
+            handlePaymentSuccess(task)
+          }
+        }}
         customerInfo={{
-          email: user?.email || 'customer@muyacon.com',
+          email: user?.profile?.email || 'customer@muyacon.com',
           firstName: user?.name?.split(' ')[0] || 'Customer',
           lastName: user?.name?.split(' ').slice(1).join(' ') || 'User',
           phone: user?.phone || '+251911234567'
         }}
       />
+
+      {/* Rating Modal - Temporarily disabled */}
+      {/* {selectedTaskForRating && (
+        <RatingModal
+          visible={showRatingModal}
+          onClose={() => {
+            setShowRatingModal(false)
+            setSelectedTaskForRating(null)
+          }}
+          onRatingSubmitted={handleRatingSubmitted}
+          taskId={selectedTaskForRating.id || ''}
+          customerId={selectedTaskForRating.customer_id || ''}
+          technicianId={selectedTaskForRating.tasker_id || ''}
+          customerUserId={user?.id || ''}
+          technicianUserId={selectedTaskForRating.tasker_id || ''}
+          taskTitle={selectedTaskForRating.title || 'Task'}
+          technicianName={selectedTaskForRating.tasker_name || 'Technician'}
+        />
+      )} */}
     </SafeAreaView>
   )
 }
@@ -817,57 +868,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background.secondary,
-  },
-  header: {
-    backgroundColor: Colors.background.primary,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 24,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 20,
-  },
-  headerText: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: Colors.neutral[900],
-    marginBottom: 4,
-  },
-  headerSubtitle: {
-    fontSize: 16,
-    color: Colors.neutral[600],
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  createTaskButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.primary[500],
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    gap: 6,
-  },
-  createTaskText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
   },
   notificationButton: {
     width: 44,
@@ -1190,6 +1190,18 @@ const styles = StyleSheet.create({
   },
   payButton: {
     backgroundColor: Colors.success[600],
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  rateButton: {
+    backgroundColor: Colors.warning[500],
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  messageButton: {
+    backgroundColor: Colors.primary[500],
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,

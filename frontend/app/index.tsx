@@ -43,7 +43,7 @@ const featuredServices = [
   {
     id: '1',
     title: 'Deep House Cleaning',
-    price: '$75',
+    price: '2,500 ETB',
     rating: 4.9,
     reviews: 120,
     category: 'Cleaning',
@@ -52,7 +52,7 @@ const featuredServices = [
   {
     id: '2',
     title: 'Furniture Assembly',
-    price: '$50',
+    price: '1,500 ETB',
     rating: 4.8,
     reviews: 85,
     category: 'Handyman',
@@ -61,7 +61,7 @@ const featuredServices = [
   {
     id: '3',
     title: 'Local Delivery',
-    price: '$20',
+    price: '500 ETB',
     rating: 4.7,
     reviews: 150,
     category: 'Delivery',
@@ -70,7 +70,7 @@ const featuredServices = [
   {
     id: '4',
     title: 'Portrait Photography',
-    price: '$100',
+    price: '3,000 ETB',
     rating: 5.0,
     reviews: 60,
     category: 'Photography',
@@ -341,7 +341,7 @@ export default function Index() {
                     </View>
                   )}
                   <View style={styles.serviceFooter}>
-                    <Text style={styles.servicePrice}>${task.budget}</Text>
+                    <Text style={styles.servicePrice}>{task.budget} ETB</Text>
                     <Text style={styles.serviceReviews}>{task.city || 'Location'}</Text>
                   </View>
                 </TouchableOpacity>

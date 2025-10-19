@@ -148,7 +148,7 @@ export default function ApplyTask() {
               <View style={styles.taskInfo}>
                 <Text style={styles.taskTitle}>{taskTitle}</Text>
                 <Text style={styles.customerName}>Posted by {customerName}</Text>
-                <Text style={styles.budget}>Budget: ${budget}</Text>
+                <Text style={styles.budget}>Budget: {budget} ETB</Text>
               </View>
 
               {/* Proposed Price */}

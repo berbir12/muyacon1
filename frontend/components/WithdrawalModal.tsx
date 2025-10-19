@@ -9,248 +9,131 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  SafeAreaView,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import { WalletService } from '../services/WalletService'
+import { PaymentMethodService, PaymentMethod } from '../services/PaymentMethodService'
+import { WithdrawalOrderService } from '../services/WithdrawalOrderService'
 import Colors from '../constants/Colors'
 
 interface WithdrawalModalProps {
   visible: boolean
   onClose: () => void
-  taskerUserId: string
-  currentBalance: number
   onWithdrawalSuccess: () => void
+  currentBalance: number
+  userId: string
 }
 
-export default function WithdrawalModal({ 
-  visible, 
-  onClose, 
-  taskerUserId, 
+export default function WithdrawalModal({
+  visible,
+  onClose,
+  onWithdrawalSuccess,
   currentBalance,
-  onWithdrawalSuccess 
+  userId
 }: WithdrawalModalProps) {
-  const [selectedMethod, setSelectedMethod] = useState<string | null>(null)
-  const [amount, setAmount] = useState('')
-  const [accountDetails, setAccountDetails] = useState({
-    accountNumber: '',
-    bankName: '',
-    mobileNumber: '',
-    provider: '',
-    pickupLocation: ''
-  })
   const [loading, setLoading] = useState(false)
-  const [withdrawalMethods, setWithdrawalMethods] = useState<any[]>([])
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null)
+  const [amount, setAmount] = useState('')
+  const [showAddMethod, setShowAddMethod] = useState(false)
 
   useEffect(() => {
     if (visible) {
-      loadWithdrawalMethods()
+      loadPaymentMethods()
     }
   }, [visible])
 
-  const loadWithdrawalMethods = () => {
-    const methods = WalletService.getWithdrawalMethods()
-    setWithdrawalMethods(methods)
+  const loadPaymentMethods = async () => {
+    try {
+      const methods = await PaymentMethodService.getPaymentMethods(userId)
+      setPaymentMethods(methods)
+      
+      // Auto-select default method if available
+      const defaultMethod = methods.find(m => m.is_default)
+      if (defaultMethod) {
+        setSelectedMethod(defaultMethod)
+      }
+    } catch (error) {
+      console.error('Error loading payment methods:', error)
+    }
   }
 
-  const handleWithdrawal = async () => {
+  const handleWithdraw = async () => {
     if (!selectedMethod) {
-      Alert.alert('Error', 'Please select a withdrawal method')
+      Alert.alert('Error', 'Please select a payment method')
       return
     }
 
-    const withdrawalAmount = parseFloat(amount)
-    if (isNaN(withdrawalAmount) || withdrawalAmount <= 0) {
+    const withdrawAmount = parseFloat(amount)
+    if (isNaN(withdrawAmount) || withdrawAmount <= 0) {
       Alert.alert('Error', 'Please enter a valid amount')
       return
     }
 
-    if (withdrawalAmount > currentBalance) {
+    if (withdrawAmount > currentBalance) {
       Alert.alert('Error', 'Insufficient balance')
       return
     }
 
-    const method = withdrawalMethods.find(m => m.id === selectedMethod)
-    if (withdrawalAmount < method.minAmount) {
-      Alert.alert('Error', `Minimum withdrawal amount is ${formatCurrency(method.minAmount)}`)
+    if (withdrawAmount < 50) {
+      Alert.alert('Error', 'Minimum withdrawal amount is 50 ETB')
       return
-    }
-
-    if (withdrawalAmount > method.maxAmount) {
-      Alert.alert('Error', `Maximum withdrawal amount is ${formatCurrency(method.maxAmount)}`)
-      return
-    }
-
-    // Validate required fields based on method
-    if (selectedMethod === 'bank_transfer') {
-      if (!accountDetails.accountNumber || !accountDetails.bankName) {
-        Alert.alert('Error', 'Please provide account number and bank name')
-        return
-      }
-    } else if (selectedMethod === 'mobile_money') {
-      if (!accountDetails.mobileNumber || !accountDetails.provider) {
-        Alert.alert('Error', 'Please provide mobile number and provider')
-        return
-      }
-    } else if (selectedMethod === 'cash_pickup') {
-      if (!accountDetails.pickupLocation) {
-        Alert.alert('Error', 'Please provide pickup location')
-        return
-      }
     }
 
     try {
       setLoading(true)
-      const success = await WalletService.requestWithdrawal(
-        taskerUserId,
-        withdrawalAmount,
-        selectedMethod as any,
-        accountDetails
+
+      await WithdrawalOrderService.createWithdrawalOrder(
+        userId,
+        selectedMethod.id,
+        withdrawAmount,
+        selectedMethod.type as any,
+        selectedMethod.withdrawal_details
       )
 
-      if (success) {
-        Alert.alert(
-          'Withdrawal Requested',
-          'Your withdrawal request has been submitted. You will be notified once it\'s processed.',
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                onWithdrawalSuccess()
-                onClose()
-                resetForm()
-              }
+      Alert.alert(
+        'Withdrawal Requested',
+        'Your withdrawal request has been submitted and is pending approval.',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              onWithdrawalSuccess()
+              onClose()
             }
-          ]
-        )
-      } else {
-        Alert.alert('Error', 'Failed to submit withdrawal request. Please try again.')
-      }
+          }
+        ]
+      )
     } catch (error) {
-      console.error('Error requesting withdrawal:', error)
-      Alert.alert('Error', 'An unexpected error occurred. Please try again.')
+      console.error('Error creating withdrawal order:', error)
+      Alert.alert('Error', 'Failed to create withdrawal request. Please try again.')
     } finally {
       setLoading(false)
     }
-  }
-
-  const resetForm = () => {
-    setSelectedMethod(null)
-    setAmount('')
-    setAccountDetails({
-      accountNumber: '',
-      bankName: '',
-      mobileNumber: '',
-      provider: '',
-      pickupLocation: ''
-    })
   }
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-ET', {
       style: 'currency',
       currency: 'ETB',
-      minimumFractionDigits: 2,
     }).format(amount)
   }
 
-  const getMethodIcon = (methodId: string) => {
-    switch (methodId) {
-      case 'bank_transfer':
-        return 'bank'
+  const getWithdrawalMethodName = (type: string) => {
+    switch (type) {
+      case 'bank_account':
+        return 'Bank Transfer'
       case 'mobile_money':
-        return 'phone-portrait'
+        return 'Mobile Money'
       case 'cash_pickup':
-        return 'location'
+        return 'Cash Pickup'
       default:
-        return 'card'
+        return 'Unknown'
     }
   }
 
-  const renderAccountDetailsForm = () => {
-    if (!selectedMethod) return null
-
-    switch (selectedMethod) {
-      case 'bank_transfer':
-        return (
-          <View style={styles.formSection}>
-            <Text style={styles.formSectionTitle}>Bank Account Details</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Account Number"
-              value={accountDetails.accountNumber}
-              onChangeText={(text) => setAccountDetails(prev => ({ ...prev, accountNumber: text }))}
-              keyboardType="numeric"
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Bank Name"
-              value={accountDetails.bankName}
-              onChangeText={(text) => setAccountDetails(prev => ({ ...prev, bankName: text }))}
-            />
-          </View>
-        )
-      case 'mobile_money':
-        return (
-          <View style={styles.formSection}>
-            <Text style={styles.formSectionTitle}>Mobile Money Details</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Mobile Number"
-              value={accountDetails.mobileNumber}
-              onChangeText={(text) => setAccountDetails(prev => ({ ...prev, mobileNumber: text }))}
-              keyboardType="phone-pad"
-            />
-            <View style={styles.providerSelector}>
-              <TouchableOpacity
-                style={[
-                  styles.providerOption,
-                  accountDetails.provider === 'telebirr' && styles.providerOptionSelected
-                ]}
-                onPress={() => setAccountDetails(prev => ({ ...prev, provider: 'telebirr' }))}
-              >
-                <Text style={[
-                  styles.providerText,
-                  accountDetails.provider === 'telebirr' && styles.providerTextSelected
-                ]}>
-                  Telebirr
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.providerOption,
-                  accountDetails.provider === 'm_pesa' && styles.providerOptionSelected
-                ]}
-                onPress={() => setAccountDetails(prev => ({ ...prev, provider: 'm_pesa' }))}
-              >
-                <Text style={[
-                  styles.providerText,
-                  accountDetails.provider === 'm_pesa' && styles.providerTextSelected
-                ]}>
-                  M-Pesa
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )
-      case 'cash_pickup':
-        return (
-          <View style={styles.formSection}>
-            <Text style={styles.formSectionTitle}>Pickup Location</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter pickup location"
-              value={accountDetails.pickupLocation}
-              onChangeText={(text) => setAccountDetails(prev => ({ ...prev, pickupLocation: text }))}
-            />
-            <Text style={styles.pickupNote}>
-              You will need to show a valid ID when picking up your cash.
-            </Text>
-          </View>
-        )
-      default:
-        return null
-    }
-  }
+  const processingFee = selectedMethod ? Math.max(parseFloat(amount) * 0.02, 10) : 0
+  const netAmount = parseFloat(amount) - processingFee
 
   return (
     <Modal
@@ -259,18 +142,17 @@ export default function WithdrawalModal({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <View style={styles.container}>
-        {/* Header */}
+      <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <Ionicons name="close" size={24} color={Colors.neutral[600]} />
+          <TouchableOpacity onPress={onClose}>
+            <Ionicons name="close" size={24} color={Colors.neutral[700]} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Request Withdrawal</Text>
-          <View style={styles.placeholder} />
+          <Text style={styles.title}>Withdraw Funds</Text>
+          <View style={styles.headerRight} />
         </View>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Balance Info */}
+        <ScrollView style={styles.content}>
+          {/* Balance Display */}
           <View style={styles.balanceCard}>
             <Text style={styles.balanceLabel}>Available Balance</Text>
             <Text style={styles.balanceAmount}>{formatCurrency(currentBalance)}</Text>
@@ -279,83 +161,108 @@ export default function WithdrawalModal({
           {/* Amount Input */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Withdrawal Amount</Text>
-            <TextInput
-              style={styles.amountInput}
-              placeholder="Enter amount"
-              value={amount}
-              onChangeText={setAmount}
-              keyboardType="numeric"
-            />
+            <View style={styles.amountInputContainer}>
+              <Text style={styles.currencySymbol}>ETB</Text>
+              <TextInput
+                style={styles.amountInput}
+                value={amount}
+                onChangeText={setAmount}
+                placeholder="0.00"
+                keyboardType="numeric"
+                returnKeyType="done"
+              />
+            </View>
             <Text style={styles.amountNote}>
-              Minimum: {formatCurrency(selectedMethod ? withdrawalMethods.find(m => m.id === selectedMethod)?.minAmount || 0)}
+              Minimum: {formatCurrency(50)} • Maximum: {formatCurrency(currentBalance)}
             </Text>
           </View>
 
-          {/* Withdrawal Methods */}
+          {/* Payment Methods */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Withdrawal Method</Text>
-            <View style={styles.methodsList}>
-              {withdrawalMethods.map((method) => (
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Payment Method</Text>
+              <TouchableOpacity onPress={() => setShowAddMethod(true)}>
+                <Text style={styles.addButton}>+ Add Method</Text>
+              </TouchableOpacity>
+            </View>
+
+            {paymentMethods.length === 0 ? (
+              <View style={styles.emptyMethods}>
+                <Ionicons name="card-outline" size={48} color={Colors.neutral[300]} />
+                <Text style={styles.emptyTitle}>No Payment Methods</Text>
+                <Text style={styles.emptySubtitle}>
+                  Add a payment method to withdraw funds
+                </Text>
                 <TouchableOpacity
-                  key={method.id}
-                  style={[
-                    styles.methodCard,
-                    selectedMethod === method.id && styles.methodCardSelected
-                  ]}
-                  onPress={() => setSelectedMethod(method.id)}
+                  style={styles.addMethodButton}
+                  onPress={() => setShowAddMethod(true)}
                 >
-                  <View style={styles.methodInfo}>
-                    <Ionicons 
-                      name={getMethodIcon(method.id)} 
-                      size={24} 
-                      color={selectedMethod === method.id ? Colors.primary[500] : Colors.neutral[600]} 
-                    />
-                    <View style={styles.methodDetails}>
-                      <Text style={[
-                        styles.methodName,
-                        selectedMethod === method.id && styles.methodNameSelected
-                      ]}>
-                        {method.name}
-                      </Text>
-                      <Text style={styles.methodDescription}>
-                        {method.description}
-                      </Text>
-                      <Text style={styles.methodInfo}>
-                        {formatCurrency(method.minAmount)} - {formatCurrency(method.maxAmount)} • {method.processingTime}
-                        {method.fee > 0 && ` • Fee: ${formatCurrency(method.fee)}`}
+                  <Text style={styles.addMethodButtonText}>Add Payment Method</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.methodsList}>
+                {paymentMethods.map((method) => (
+                  <TouchableOpacity
+                    key={method.id}
+                    style={[
+                      styles.methodItem,
+                      selectedMethod?.id === method.id && styles.methodItemSelected
+                    ]}
+                    onPress={() => setSelectedMethod(method)}
+                  >
+                    <View style={styles.methodIcon}>
+                      <Ionicons
+                        name={
+                          method.type === 'bank_account' ? 'card-outline' :
+                          method.type === 'mobile_money' ? 'phone-portrait-outline' :
+                          'location-outline'
+                        }
+                        size={20}
+                        color={selectedMethod?.id === method.id ? Colors.primary[500] : Colors.neutral[500]}
+                      />
+                    </View>
+                    <View style={styles.methodInfo}>
+                      <Text style={styles.methodName}>{method.display_name}</Text>
+                      <Text style={styles.methodType}>
+                        {getWithdrawalMethodName(method.type)}
                       </Text>
                     </View>
-                  </View>
-                  {selectedMethod === method.id && (
-                    <Ionicons name="checkmark-circle" size={24} color={Colors.primary[500]} />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
+                    {method.is_default && (
+                      <View style={styles.defaultBadge}>
+                        <Text style={styles.defaultText}>Default</Text>
+                      </View>
+                    )}
+                    {selectedMethod?.id === method.id && (
+                      <Ionicons name="checkmark-circle" size={20} color={Colors.primary[500]} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
           </View>
 
-          {/* Account Details Form */}
-          {renderAccountDetailsForm()}
-
-          {/* Summary */}
-          {selectedMethod && amount && (
-            <View style={styles.summaryCard}>
-              <Text style={styles.summaryTitle}>Withdrawal Summary</Text>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Amount:</Text>
-                <Text style={styles.summaryValue}>{formatCurrency(parseFloat(amount) || 0)}</Text>
-              </View>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Method:</Text>
-                <Text style={styles.summaryValue}>
-                  {withdrawalMethods.find(m => m.id === selectedMethod)?.name}
-                </Text>
-              </View>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Processing Time:</Text>
-                <Text style={styles.summaryValue}>
-                  {withdrawalMethods.find(m => m.id === selectedMethod)?.processingTime}
-                </Text>
+          {/* Withdrawal Summary */}
+          {selectedMethod && amount && !isNaN(parseFloat(amount)) && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Withdrawal Summary</Text>
+              <View style={styles.summaryCard}>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Amount:</Text>
+                  <Text style={styles.summaryValue}>{formatCurrency(parseFloat(amount))}</Text>
+                </View>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Method:</Text>
+                  <Text style={styles.summaryValue}>{method.display_name}</Text>
+                </View>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Processing Fee:</Text>
+                  <Text style={styles.summaryValue}>{formatCurrency(processingFee)}</Text>
+                </View>
+                <View style={[styles.summaryRow, styles.summaryTotal]}>
+                  <Text style={styles.summaryTotalLabel}>You'll Receive:</Text>
+                  <Text style={styles.summaryTotalValue}>{formatCurrency(netAmount)}</Text>
+                </View>
               </View>
             </View>
           )}
@@ -366,13 +273,13 @@ export default function WithdrawalModal({
           <TouchableOpacity
             style={[
               styles.withdrawButton,
-              (!selectedMethod || !amount || loading) && styles.withdrawButtonDisabled
+              (!selectedMethod || !amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) && styles.withdrawButtonDisabled
             ]}
-            onPress={handleWithdrawal}
-            disabled={!selectedMethod || !amount || loading}
+            onPress={handleWithdraw}
+            disabled={!selectedMethod || !amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0 || loading}
           >
             {loading ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <ActivityIndicator color="#fff" />
             ) : (
               <>
                 <Ionicons name="arrow-up" size={20} color="#fff" />
@@ -381,7 +288,7 @@ export default function WithdrawalModal({
             )}
           </TouchableOpacity>
         </View>
-      </View>
+      </SafeAreaView>
     </Modal>
   )
 }
@@ -395,182 +302,185 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: Colors.background.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border.light,
+    borderBottomColor: Colors.border.primary,
   },
-  closeButton: {
-    padding: 8,
-  },
-  headerTitle: {
+  title: {
     fontSize: 18,
     fontWeight: '600',
-    color: Colors.neutral[900],
+    color: Colors.neutral[700],
   },
-  placeholder: {
-    width: 40,
+  headerRight: {
+    width: 24,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 20,
   },
   balanceCard: {
-    backgroundColor: Colors.background.primary,
-    borderRadius: 16,
+    backgroundColor: '#fff',
+    margin: 16,
     padding: 20,
-    marginTop: 20,
+    borderRadius: 12,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowRadius: 4,
     elevation: 3,
   },
   balanceLabel: {
     fontSize: 14,
-    color: Colors.neutral[600],
+    color: Colors.neutral[500],
     marginBottom: 8,
   },
   balanceAmount: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: Colors.primary[500],
+    color: Colors.primary[600],
   },
   section: {
-    marginTop: 24,
+    backgroundColor: '#fff',
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.neutral[900],
+    color: Colors.neutral[700],
     marginBottom: 16,
   },
-  amountInput: {
+  amountInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: Colors.background.primary,
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: Colors.border.light,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  currencySymbol: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.neutral[600],
+    marginRight: 8,
+  },
+  amountInput: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.neutral[700],
   },
   amountNote: {
     fontSize: 12,
     color: Colors.neutral[500],
     marginTop: 8,
   },
-  methodsList: {
-    gap: 12,
+  addButton: {
+    fontSize: 14,
+    color: Colors.primary[500],
+    fontWeight: '500',
   },
-  methodCard: {
+  emptyMethods: {
+    alignItems: 'center',
+    paddingVertical: 32,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.neutral[600],
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: Colors.neutral[500],
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  addMethodButton: {
+    backgroundColor: Colors.primary[500],
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  addMethodButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  methodsList: {
+    gap: 8,
+  },
+  methodItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: Colors.background.primary,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 2,
-    borderColor: 'transparent',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.border.primary,
   },
-  methodCardSelected: {
+  methodItemSelected: {
     borderColor: Colors.primary[500],
     backgroundColor: Colors.primary[50],
   },
-  methodInfo: {
-    flexDirection: 'row',
+  methodIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.background.primary,
     alignItems: 'center',
-    flex: 1,
+    justifyContent: 'center',
+    marginRight: 12,
   },
-  methodDetails: {
-    marginLeft: 12,
+  methodInfo: {
     flex: 1,
   },
   methodName: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: Colors.neutral[900],
-    marginBottom: 4,
-  },
-  methodNameSelected: {
-    color: Colors.primary[700],
-  },
-  methodDescription: {
-    fontSize: 12,
-    color: Colors.neutral[600],
-    marginBottom: 4,
-  },
-  formSection: {
-    marginTop: 24,
-  },
-  formSectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.neutral[900],
-    marginBottom: 16,
-  },
-  input: {
-    backgroundColor: Colors.background.primary,
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: Colors.border.light,
-    marginBottom: 12,
-  },
-  providerSelector: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  providerOption: {
-    flex: 1,
-    backgroundColor: Colors.background.primary,
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.border.light,
-  },
-  providerOptionSelected: {
-    borderColor: Colors.primary[500],
-    backgroundColor: Colors.primary[50],
-  },
-  providerText: {
     fontSize: 14,
     fontWeight: '500',
-    color: Colors.neutral[900],
+    color: Colors.neutral[700],
+    marginBottom: 2,
   },
-  providerTextSelected: {
-    color: Colors.primary[700],
-  },
-  pickupNote: {
+  methodType: {
     fontSize: 12,
     color: Colors.neutral[500],
-    marginTop: 8,
-    fontStyle: 'italic',
+  },
+  defaultBadge: {
+    backgroundColor: Colors.success[100],
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  defaultText: {
+    fontSize: 10,
+    color: Colors.success[600],
+    fontWeight: '500',
   },
   summaryCard: {
     backgroundColor: Colors.background.primary,
-    borderRadius: 16,
-    padding: 20,
-    marginTop: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  summaryTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.neutral[900],
-    marginBottom: 16,
+    borderRadius: 8,
+    padding: 16,
   },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   summaryLabel: {
     fontSize: 14,
@@ -578,23 +488,38 @@ const styles = StyleSheet.create({
   },
   summaryValue: {
     fontSize: 14,
-    color: Colors.neutral[900],
     fontWeight: '500',
+    color: Colors.neutral[700],
+  },
+  summaryTotal: {
+    borderTopWidth: 1,
+    borderTopColor: Colors.border.primary,
+    paddingTop: 8,
+    marginTop: 8,
+    marginBottom: 0,
+  },
+  summaryTotalLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.neutral[700],
+  },
+  summaryTotalValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: Colors.primary[600],
   },
   footer: {
-    padding: 20,
-    backgroundColor: Colors.background.primary,
+    padding: 16,
     borderTopWidth: 1,
-    borderTopColor: Colors.border.light,
+    borderTopColor: Colors.border.primary,
   },
   withdrawButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.primary[500],
-    borderRadius: 12,
     paddingVertical: 16,
-    gap: 8,
+    borderRadius: 8,
   },
   withdrawButtonDisabled: {
     backgroundColor: Colors.neutral[300],
@@ -603,5 +528,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+    marginLeft: 8,
   },
 })

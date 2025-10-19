@@ -185,7 +185,10 @@ app.post('/webhook', async (req, res) => {
   try {
     const payload = req.body;
     const signature = req.headers['chapa-signature'] || req.headers['x-chapa-signature'];
-    const webhookSecret = process.env.CHAPA_WEBHOOK_SECRET || 'qwertyuil@1A';
+    const webhookSecret = process.env.CHAPA_WEBHOOK_SECRET;
+    if (!webhookSecret) {
+      throw new Error('CHAPA_WEBHOOK_SECRET environment variable is required');
+    }
 
     console.log('Received webhook:', JSON.stringify(payload, null, 2));
 

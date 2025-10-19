@@ -170,6 +170,9 @@ export default function Profile() {
       case 'edit-profile':
         router.push('/edit-profile')
         break
+      case 'wallet':
+        router.push('/wallet')
+        break
       case 'settings':
         router.push('/settings')
         break
@@ -198,6 +201,13 @@ export default function Profile() {
       icon: 'person-outline',
       color: Colors.primary[500],
     },
+    // Only show wallet for taskers (not customers)
+    ...(user?.current_mode === 'tasker' || (user?.role === 'tasker' && user?.current_mode !== 'customer') || user?.role === 'both' ? [{
+      id: 'wallet',
+      title: 'Wallet',
+      icon: 'wallet-outline',
+      color: Colors.success[500],
+    }] : []),
     {
       id: 'settings',
       title: 'Settings',

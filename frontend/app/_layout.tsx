@@ -224,6 +224,21 @@ function TabNavigator() {
           href: null, // Hide from tab bar
         }}
       />
+      
+      <Tabs.Screen
+        name="payment-success"
+        options={{
+          href: null, // Hide from tab bar
+        }}
+      />
+      
+      <Tabs.Screen
+        name="wallet"
+        options={{
+          href: null, // Hide from tab bar
+        }}
+      />
+      
     </Tabs>
   )
 }

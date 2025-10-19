@@ -15,40 +15,22 @@ import { WalletService, WalletStats, WalletTransaction } from '../services/Walle
 import Colors from '../constants/Colors'
 
 interface WalletComponentProps {
-  taskerUserId: string
-  onWithdrawPress?: () => void
+  wallet: any
+  transactions: WalletTransaction[]
+  onWithdraw?: () => void
+  onRefresh?: () => void
 }
 
-export default function WalletComponent({ taskerUserId, onWithdrawPress }: WalletComponentProps) {
-  const [walletDetails, setWalletDetails] = useState<{
-    wallet: any
-    stats: WalletStats
-    recentTransactions: WalletTransaction[]
-  } | null>(null)
-  const [loading, setLoading] = useState(true)
+export default function WalletComponent({ wallet, transactions, onWithdraw, onRefresh }: WalletComponentProps) {
+  const [loading, setLoading] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
 
-  useEffect(() => {
-    loadWalletDetails()
-  }, [taskerUserId])
-
-  const loadWalletDetails = async () => {
-    try {
-      setLoading(true)
-      const details = await WalletService.getWalletDetails(taskerUserId)
-      setWalletDetails(details)
-    } catch (error) {
-      console.error('Error loading wallet details:', error)
-      Alert.alert('Error', 'Failed to load wallet details')
-    } finally {
-      setLoading(false)
+  const handleRefresh = async () => {
+    if (onRefresh) {
+      setRefreshing(true)
+      await onRefresh()
+      setRefreshing(false)
     }
-  }
-
-  const onRefresh = async () => {
-    setRefreshing(true)
-    await loadWalletDetails()
-    setRefreshing(false)
   }
 
   const formatCurrency = (amount: number) => {
@@ -102,26 +84,44 @@ export default function WalletComponent({ taskerUserId, onWithdrawPress }: Walle
     )
   }
 
-  if (!walletDetails) {
+  if (!wallet) {
     return (
       <View style={styles.errorContainer}>
         <Ionicons name="wallet-outline" size={48} color={Colors.neutral[300]} />
         <Text style={styles.errorTitle}>Unable to load wallet</Text>
         <Text style={styles.errorSubtitle}>Please try again later</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={loadWalletDetails}>
+        <TouchableOpacity style={styles.retryButton} onPress={handleRefresh}>
           <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
       </View>
     )
   }
 
-  const { wallet, stats, recentTransactions } = walletDetails
+  // Calculate stats from transactions
+  const stats = {
+    totalEarnings: transactions
+      .filter(t => t.type === 'deposit')
+      .reduce((sum, t) => sum + (t.amount || 0), 0),
+    completedTasks: transactions
+      .filter(t => t.type === 'deposit')
+      .length,
+    totalWithdrawals: transactions
+      .filter(t => t.type === 'withdrawal')
+      .reduce((sum, t) => sum + (t.amount || 0), 0),
+    thisMonthEarnings: transactions
+      .filter(t => t.type === 'deposit' && 
+        new Date(t.created_at || '').getMonth() === new Date().getMonth())
+      .reduce((sum, t) => sum + (t.amount || 0), 0),
+    pendingWithdrawals: transactions
+      .filter(t => t.type === 'withdrawal' && t.status === 'pending')
+      .length
+  }
 
   return (
     <ScrollView 
       style={styles.container}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
       }
     >
       {/* Balance Card */}
@@ -162,7 +162,7 @@ export default function WalletComponent({ taskerUserId, onWithdrawPress }: Walle
       <View style={styles.actionButtons}>
         <TouchableOpacity 
           style={[styles.actionButton, styles.withdrawButton]}
-          onPress={onWithdrawPress}
+          onPress={onWithdraw}
           disabled={wallet?.balance <= 0}
         >
           <Ionicons name="arrow-up" size={20} color="#fff" />
@@ -183,7 +183,7 @@ export default function WalletComponent({ taskerUserId, onWithdrawPress }: Walle
           </TouchableOpacity>
         </View>
 
-        {recentTransactions.length === 0 ? (
+        {transactions.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons name="receipt-outline" size={48} color={Colors.neutral[300]} />
             <Text style={styles.emptyTitle}>No Transactions Yet</Text>
@@ -193,7 +193,7 @@ export default function WalletComponent({ taskerUserId, onWithdrawPress }: Walle
           </View>
         ) : (
           <View style={styles.transactionsList}>
-            {recentTransactions.map((transaction) => (
+            {transactions.map((transaction) => (
               <View key={transaction.id} style={styles.transactionItem}>
                 <View style={styles.transactionIcon}>
                   <Ionicons 

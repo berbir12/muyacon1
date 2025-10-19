@@ -538,6 +538,23 @@ export class PaymentService {
       if (updateError) throw updateError
 
       // Update task payment status
+      const { data: transaction } = await supabase
+        .from('transactions')
+        .select('task_id')
+        .eq('metadata->>tx_ref', txRef)
+        .single()
+
+      if (transaction?.task_id) {
+        await supabase
+          .from('tasks')
+          .update({
+            payment_status: 'completed',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', transaction.task_id)
+      }
+
+      // Update task payment status
       const { data: payment } = await supabase
         .from('transactions')
         .select('task_id, user_id, amount')

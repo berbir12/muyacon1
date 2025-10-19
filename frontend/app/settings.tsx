@@ -16,6 +16,7 @@ import { useAuth } from '../contexts/SimpleAuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import Colors from '../constants/Colors'
 import { SettingsService, type AppSettings } from '../services/SettingsService'
+import Header from '../components/Header'
 
 const { width } = Dimensions.get('window')
 
@@ -223,16 +224,15 @@ export default function Settings() {
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Settings</Text>
-        <TouchableOpacity 
-          style={styles.logoutButton}
-          onPress={handleLogout}
-        >
-          <Ionicons name="log-out-outline" size={20} color={Colors.error[500]} />
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
-      </View>
+      <Header
+        title="Settings"
+        rightAction={{
+          icon: 'log-out-outline',
+          label: 'Logout',
+          onPress: handleLogout,
+          color: Colors.error[500]
+        }}
+      />
 
       {/* User Info */}
       <View style={styles.userSection}>
@@ -319,35 +319,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background.secondary,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: Colors.background.primary,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border.light,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: Colors.neutral[900],
-  },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: Colors.error[50],
-    gap: 6,
-  },
-  logoutText: {
-    color: Colors.error[500],
-    fontSize: 14,
-    fontWeight: '600',
   },
   userSection: {
     flexDirection: 'row',

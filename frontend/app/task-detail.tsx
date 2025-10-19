@@ -20,6 +20,7 @@ import { useAuth } from '../contexts/SimpleAuthContext'
 import { TaskService, Task } from '../services/TaskService'
 import { TaskApplicationService } from '../services/TaskApplicationService'
 import TaskStatusManager from '../components/TaskStatusManager'
+import Header from '../components/Header'
 import Colors from '../constants/Colors'
 
 const { width } = Dimensions.get('window')
@@ -187,13 +188,11 @@ export default function TaskDetail() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={Colors.neutral[900]} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Task Details</Text>
-          <View style={styles.headerRight} />
-        </View>
+        <Header
+          title="Task Details"
+          showBackButton={true}
+          onBackPress={() => router.push('/jobs')}
+        />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.primary[500]} />
           <Text style={styles.loadingText}>Loading task details...</Text>
@@ -205,13 +204,11 @@ export default function TaskDetail() {
   if (!task) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={Colors.neutral[900]} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Task Details</Text>
-          <View style={styles.headerRight} />
-        </View>
+        <Header
+          title="Task Details"
+          showBackButton={true}
+          onBackPress={() => router.push('/jobs')}
+        />
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={64} color={Colors.error[500]} />
           <Text style={styles.errorTitle}>Task Not Found</Text>
@@ -223,13 +220,11 @@ export default function TaskDetail() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={Colors.neutral[900]} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Task Details</Text>
-        <View style={styles.headerRight} />
-      </View>
+      <Header
+        title="Task Details"
+        showBackButton={true}
+        onBackPress={() => router.push('/jobs')}
+      />
 
       <ScrollView 
         style={styles.content}
@@ -249,7 +244,7 @@ export default function TaskDetail() {
               </View>
             )}
           </View>
-          <Text style={styles.taskPrice}>${task.budget}</Text>
+          <Text style={styles.taskPrice}>{task.budget} ETB</Text>
         </View>
 
         {/* Task Images */}
@@ -475,27 +470,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background.secondary,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: Colors.background.primary,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border.light,
-  },
-  backButton: {
-    padding: 4,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: Colors.neutral[900],
-  },
-  headerRight: {
-    width: 32,
   },
   placeholder: {
     width: 32,

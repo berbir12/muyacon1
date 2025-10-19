@@ -21,7 +21,7 @@ interface ChapaPaymentModalProps {
   visible: boolean
   onClose: () => void
   payment: Payment | null
-  onPaymentSuccess: () => void
+  onPaymentSuccess: (task?: any) => void
   customerInfo?: {
     email: string
     firstName: string
@@ -140,7 +140,7 @@ export default function ChapaPaymentModal({
                 {
                   text: 'OK',
                   onPress: () => {
-                    onPaymentSuccess()
+                    onPaymentSuccess(payment) // Pass payment info which contains task_id
                     onClose()
                   }
                 }

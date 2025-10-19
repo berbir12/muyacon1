@@ -87,6 +87,40 @@ export class TaskService {
     return new Map(profiles?.map(p => [p.id, p.full_name]) || []);
   }
 
+  // Helper function to get category name by ID
+  private static async getCategoryName(categoryId: string): Promise<string> {
+    try {
+      const { data: category } = await supabase
+        .from('task_categories')
+        .select('name')
+        .eq('id', categoryId)
+        .maybeSingle()
+      return category?.name || 'Other'
+    } catch (error) {
+      console.error('Error fetching category name:', error)
+      return 'Other'
+    }
+  }
+
+  // Helper function to get category names for multiple tasks
+  private static async getCategoryNames(categoryIds: string[]): Promise<Map<string, string>> {
+    try {
+      const { data: categories } = await supabase
+        .from('task_categories')
+        .select('id, name')
+        .in('id', categoryIds)
+      
+      const categoryMap = new Map<string, string>()
+      categories?.forEach(category => {
+        categoryMap.set(category.id, category.name)
+      })
+      return categoryMap
+    } catch (error) {
+      console.error('Error fetching category names:', error)
+      return new Map()
+    }
+  }
+
   // Get all available tasks (open status, not assigned to current user)
   static async getAvailableTasks(userId: string): Promise<Task[]> {
     try {
@@ -113,14 +147,16 @@ export class TaskService {
 
         if (error) throw error
 
-        // Get customer names separately to avoid foreign key issues
+        // Get customer names and category names separately to avoid foreign key issues
         const customerIds = [...new Set(data.map(task => task.customer_id))];
+        const categoryIds = [...new Set(data.map(task => task.category_id))];
         const customerMap = await this.getProfileNames(customerIds);
+        const categoryMap = await this.getCategoryNames(categoryIds);
 
         return data.map(task => ({
           ...task,
           customer_name: customerMap.get(task.customer_id) || 'Unknown',
-          category_name: task.category || 'Other',
+          category_name: categoryMap.get(task.category_id) || 'Other',
           applications_count: 0
         }))
       }
@@ -145,14 +181,16 @@ export class TaskService {
 
       console.log('Available tasks query result:', { data: data?.length, error: null })
 
-      // Get customer names separately to avoid foreign key issues
+      // Get customer names and category names separately to avoid foreign key issues
       const customerIds = [...new Set(data.map(task => task.customer_id))];
+      const categoryIds = [...new Set(data.map(task => task.category_id))];
       const customerMap = await this.getProfileNames(customerIds);
+      const categoryMap = await this.getCategoryNames(categoryIds);
 
       const mappedTasks = data.map(task => ({
         ...task,
         customer_name: customerMap.get(task.customer_id) || 'Unknown',
-        category_name: task.category || 'Other',
+        category_name: categoryMap.get(task.category_id) || 'Other',
         applications_count: 0
       }))
 
@@ -205,14 +243,16 @@ export class TaskService {
       console.log('My tasks count:', data.length, 'out of', allTasks?.length || 0)
       console.log('My tasks query result:', { data: data?.length, error: null })
 
-      // Get tasker names separately if any tasks have taskers
+      // Get tasker names and category names separately if any tasks have taskers
       const taskerIds = data.filter(task => task.tasker_id).map(task => task.tasker_id);
+      const categoryIds = [...new Set(data.map(task => task.category_id))];
       const taskerMap = await this.getProfileNames(taskerIds);
+      const categoryMap = await this.getCategoryNames(categoryIds);
 
       const mappedTasks = data.map(task => ({
         ...task,
         tasker_name: task.tasker_id ? taskerMap.get(task.tasker_id) || 'Unknown' : '',
-        category_name: task.category || 'Other',
+        category_name: categoryMap.get(task.category_id) || 'Other',
         applications_count: 0 // Will be calculated separately
       }))
 
@@ -236,14 +276,16 @@ export class TaskService {
 
       if (error) throw error
 
-      // Get customer names separately
+      // Get customer names and category names separately
       const customerIds = [...new Set(data.map(task => task.customer_id))];
+      const categoryIds = [...new Set(data.map(task => task.category_id))];
       const customerMap = await this.getProfileNames(customerIds);
+      const categoryMap = await this.getCategoryNames(categoryIds);
 
       return data.map(task => ({
         ...task,
         customer_name: customerMap.get(task.customer_id) || 'Unknown',
-        category_name: task.category || 'Other',
+        category_name: categoryMap.get(task.category_id) || 'Other',
         applications_count: 0 // Will be calculated separately
       }))
     } catch (error) {
@@ -291,10 +333,13 @@ export class TaskService {
         // Don't throw here - task creation should succeed even if notifications fail
       }
 
+      // Get category name
+      const categoryName = await this.getCategoryName(data.category_id)
+
       return {
         ...data,
         customer_name: customerName,
-        category_name: data.category || 'Other',
+        category_name: categoryName,
         applications_count: 0
       }
     } catch (error) {
@@ -442,14 +487,16 @@ export class TaskService {
 
       if (error) throw error
 
-      // Get customer names separately
+      // Get customer names and category names separately
       const customerIds = [...new Set(data.map(task => task.customer_id))];
+      const categoryIds = [...new Set(data.map(task => task.category_id))];
       const customerMap = await this.getProfileNames(customerIds);
+      const categoryMap = await this.getCategoryNames(categoryIds);
 
       return data.map(task => ({
         ...task,
         customer_name: customerMap.get(task.customer_id) || 'Unknown',
-        category_name: task.category || 'Other',
+        category_name: categoryMap.get(task.category_id) || 'Other',
         applications_count: 0
       }))
     } catch (error) {
@@ -484,22 +531,24 @@ export class TaskService {
       const { data, error } = await supabase
         .from('tasks')
         .select('*')
-        .eq('is_featured', true)
         .eq('status', 'open')
+        .or('is_featured.eq.true,is_urgent.eq.true,budget.gte.1000')
         .order('created_at', { ascending: false })
         .limit(10)
 
       if (error) throw error
 
-      // Get customer names separately
+      // Get customer names and category names separately
       const customerIds = [...new Set(data.map(task => task.customer_id))];
+      const categoryIds = [...new Set(data.map(task => task.category_id))];
       const customerMap = await this.getProfileNames(customerIds);
+      const categoryMap = await this.getCategoryNames(categoryIds);
 
       return data?.map(task => ({
         ...task,
         customer_name: customerMap.get(task.customer_id) || 'Unknown',
         customer_avatar: '', // Will be added later if needed
-        category_name: task.category || 'Other',
+        category_name: categoryMap.get(task.category_id) || 'Other',
       })) || []
     } catch (error) {
       console.error('Error getting featured tasks:', error)
@@ -519,15 +568,17 @@ export class TaskService {
 
       if (error) throw error
 
-      // Get customer names separately
+      // Get customer names and category names separately
       const customerIds = [...new Set(data.map(task => task.customer_id))];
+      const categoryIds = [...new Set(data.map(task => task.category_id))];
       const customerMap = await this.getProfileNames(customerIds);
+      const categoryMap = await this.getCategoryNames(categoryIds);
 
       return data?.map(task => ({
         ...task,
         customer_name: customerMap.get(task.customer_id) || 'Unknown',
         customer_avatar: '', // Will be added later if needed
-        category_name: task.category || 'Other',
+        category_name: categoryMap.get(task.category_id) || 'Other',
       })) || []
     } catch (error) {
       console.error('Error getting recent tasks:', error)
@@ -567,8 +618,16 @@ export class TaskService {
         taskerName = tasker?.full_name || ''
       }
 
-      // Use category from task data
-      const categoryName = data.category || 'Other'
+      // Get category name from task_categories table
+      let categoryName = 'Other'
+      if (data.category_id) {
+        const { data: category } = await supabase
+          .from('task_categories')
+          .select('name')
+          .eq('id', data.category_id)
+          .maybeSingle()
+        categoryName = category?.name || 'Other'
+      }
 
       return {
         ...data,
@@ -837,14 +896,16 @@ export class TaskService {
 
       if (error) throw error
 
-      // Get customer names
+      // Get customer names and category names
       const customerIds = [...new Set(data.map(task => task.customer_id))];
+      const categoryIds = [...new Set(data.map(task => task.category_id))];
       const customerMap = await this.getProfileNames(customerIds);
+      const categoryMap = await this.getCategoryNames(categoryIds);
 
       return data.map(task => ({
         ...task,
         customer_name: customerMap.get(task.customer_id) || 'Unknown',
-        category_name: task.category || 'Other',
+        category_name: categoryMap.get(task.category_id) || 'Other',
         applications_count: 0
       }))
     } catch (error) {
