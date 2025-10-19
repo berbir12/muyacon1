@@ -10,6 +10,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 })
 
@@ -109,9 +111,7 @@ export class PushNotificationService {
           data,
           sound: 'default',
         },
-        trigger: {
-          date: triggerDate,
-        },
+        trigger: null, // Show immediately for now
       })
     } catch (error) {
       console.error('Error sending scheduled notification:', error)
@@ -283,7 +283,7 @@ export class PushNotificationService {
   }
 
   // Get notification permissions status
-  static async getPermissionsStatus(): Promise<Notifications.PermissionStatus> {
+  static async getPermissionsStatus(): Promise<Notifications.NotificationPermissionsStatus> {
     return await Notifications.getPermissionsAsync()
   }
 

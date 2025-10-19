@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect } from 'react'
 import {
   View,
   Text,
@@ -17,7 +17,6 @@ import { supabase } from '../lib/supabase'
 export default function Profile() {
   const { user, logout, switchMode, isAuthenticated, isLoading, refreshUserProfile } = useAuth()
   const router = useRouter()
-  const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -28,8 +27,6 @@ export default function Profile() {
   // Real-time subscription for profile updates
   useEffect(() => {
     if (!user) return
-
-    console.log('🚀 PROFILE - Setting up real-time subscription for user:', user.id)
 
     const subscription = supabase
       .channel('profile-updates')
@@ -42,8 +39,6 @@ export default function Profile() {
           filter: `id=eq.${user.id}`
         },
         (payload) => {
-          console.log('🚀 PROFILE - Real-time update received:', payload)
-          // Refresh the user profile when it's updated
           refreshUserProfile()
         }
       )
@@ -56,105 +51,15 @@ export default function Profile() {
           filter: `user_id=eq.${user.user_id}`
         },
         (payload) => {
-          console.log('🚀 PROFILE - Tasker application update received:', payload)
-          // Refresh the user profile when tasker application is updated
           refreshUserProfile()
         }
       )
       .subscribe()
 
     return () => {
-      console.log('🚀 PROFILE - Unsubscribing from real-time updates')
       subscription.unsubscribe()
     }
   }, [user, refreshUserProfile])
-
-  const handleRefresh = async () => {
-    setRefreshing(true)
-    try {
-      await refreshUserProfile()
-      Alert.alert('Success', 'Profile refreshed successfully!')
-    } catch (error) {
-      console.error('Error refreshing profile:', error)
-      Alert.alert('Error', 'Failed to refresh profile')
-    } finally {
-      setRefreshing(false)
-    }
-  }
-
-  const handleSyncProfile = async () => {
-    if (!user) return
-    
-    setRefreshing(true)
-    try {
-      console.log('🚀 PROFILE - Syncing profile with tasker application status')
-      
-      // Check tasker application status
-      const { data: application, error: appError } = await supabase
-        .from('tasker_applications')
-        .select('status')
-        .eq('user_id', user.user_id)
-        .maybeSingle()
-
-      if (appError) {
-        console.error('Error checking application:', appError)
-        Alert.alert('Error', 'Failed to check application status')
-        return
-      }
-
-      if (application?.status === 'approved' && user.tasker_application_status !== 'approved') {
-        console.log('🚀 PROFILE - Application approved, updating profile')
-        
-        // Update profile to match approved application
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({
-            role: 'both',
-            tasker_application_status: 'approved',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', user.id)
-
-        if (updateError) {
-          console.error('Error updating profile:', updateError)
-          Alert.alert('Error', 'Failed to update profile')
-          return
-        }
-
-        // Refresh the user profile
-        await refreshUserProfile()
-        Alert.alert('Success', 'Profile synced! You are now approved as a tasker!')
-      } else if (application?.status === 'rejected' && user.tasker_application_status !== 'rejected') {
-        console.log('🚀 PROFILE - Application rejected, updating profile')
-        
-        // Update profile to match rejected application
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({
-            tasker_application_status: 'rejected',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', user.id)
-
-        if (updateError) {
-          console.error('Error updating profile:', updateError)
-          Alert.alert('Error', 'Failed to update profile')
-          return
-        }
-
-        // Refresh the user profile
-        await refreshUserProfile()
-        Alert.alert('Info', 'Profile synced. Your application was rejected.')
-      } else {
-        Alert.alert('Info', 'Profile is already in sync with application status')
-      }
-    } catch (error) {
-      console.error('Error syncing profile:', error)
-      Alert.alert('Error', 'Failed to sync profile')
-    } finally {
-      setRefreshing(false)
-    }
-  }
 
   // Show loading while auth is being determined
   if (isLoading) {
@@ -170,7 +75,7 @@ export default function Profile() {
   if (!isAuthenticated || !user) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
-        <View style={styles.loadingContent}>
+        <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>Please log in to view your profile</Text>
         </View>
       </SafeAreaView>
@@ -189,9 +94,7 @@ export default function Profile() {
           onPress: async () => {
             try {
               await logout()
-              // Let useEffect handle navigation after state change
             } catch (error) {
-              console.error('Logout error:', error)
               Alert.alert('Error', 'Failed to logout. Please try again.')
             }
           }
@@ -209,7 +112,6 @@ export default function Profile() {
         await switchMode()
         Alert.alert('Success', `Switched to ${user.current_mode === 'customer' ? 'tasker' : 'customer'} mode!`)
       } catch (error) {
-        console.error('Error switching mode:', error)
         Alert.alert('Error', 'Failed to switch mode. Please try again.')
       }
     } else {
@@ -227,105 +129,6 @@ export default function Profile() {
       )
     }
   }
-
-  const handleRefreshProfile = async () => {
-    try {
-      await refreshUserProfile();
-      Alert.alert('Success', 'Profile refreshed successfully!');
-    } catch (error) {
-      console.error('Error refreshing profile:', error);
-      Alert.alert('Error', 'Failed to refresh profile. Please try again.');
-    }
-  };
-
-  const handleFixProfileSync = async () => {
-    if (!user) return;
-    
-    try {
-      // Check if application is approved but profile is not synced
-      const { data: application } = await supabase
-        .from('tasker_applications')
-        .select('status')
-        .eq('user_id', user.user_id)
-        .single();
-
-      if (application?.status === 'approved' && user.tasker_application_status !== 'approved') {
-        // Update profile to match approved application
-        const { error } = await supabase
-          .from('profiles')
-          .update({
-            role: 'both',
-            tasker_application_status: 'approved',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', user.id);
-
-        if (error) throw error;
-
-        // Refresh the user profile
-        await refreshUserProfile();
-        Alert.alert('Success', 'Profile synced with approved application! You can now switch to tasker mode.');
-      } else {
-        Alert.alert('Info', 'Profile is already in sync or application is not approved.');
-      }
-    } catch (error) {
-      console.error('Error fixing profile sync:', error);
-      Alert.alert('Error', 'Failed to sync profile. Please try again.');
-    }
-  };
-
-  const handleDebugStatus = async () => {
-    if (!user) return;
-    
-    try {
-      // Check actual database status
-      const { data: application, error: appError } = await supabase
-        .from('tasker_applications')
-        .select('*')
-        .eq('user_id', user.user_id)
-        .single();
-
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      let debugInfo = `App User Status:\n`;
-      debugInfo += `Role: ${user.role}\n`;
-      debugInfo += `Current Mode: ${user.current_mode}\n`;
-      debugInfo += `Tasker App Status: ${user.tasker_application_status || 'null'}\n`;
-      debugInfo += `User ID: ${user.id}\n\n`;
-      
-      debugInfo += `Database Status:\n`;
-      if (appError) {
-        debugInfo += `Application Error: ${appError.message}\n`;
-      } else if (application) {
-        debugInfo += `App Status: ${application.status}\n`;
-        debugInfo += `App Created: ${application.created_at}\n`;
-      } else {
-        debugInfo += `No application found\n`;
-      }
-      
-      if (profileError) {
-        debugInfo += `Profile Error: ${profileError.message}\n`;
-      } else if (profile) {
-        debugInfo += `Profile Role: ${profile.role}\n`;
-        debugInfo += `Profile App Status: ${profile.tasker_application_status || 'null'}\n`;
-      } else {
-        debugInfo += `No profile found\n`;
-      }
-
-      Alert.alert('Debug Info', debugInfo, [
-        { text: 'OK' },
-        { text: 'Refresh Profile', onPress: handleRefreshProfile },
-        { text: 'Fix Sync', onPress: handleFixProfileSync }
-      ]);
-    } catch (error) {
-      console.error('Debug error:', error);
-      Alert.alert('Debug Error', `Error: ${error.message}`, [{ text: 'OK' }]);
-    }
-  };
 
   const handleBecomeTasker = () => {
     if (!user) return
@@ -421,30 +224,19 @@ export default function Profile() {
     },
   ]
 
-    return (
-      <SafeAreaView style={styles.container}>
+  return (
+    <SafeAreaView style={styles.container}>
       {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerContent}>
-            <Text style={styles.headerTitle}>Profile</Text>
-            <View style={styles.headerButtons}>
-              <TouchableOpacity 
-                style={styles.refreshButton} 
-                onPress={handleRefresh}
-                disabled={refreshing}
-              >
-                <Ionicons 
-                  name={refreshing ? "refresh" : "refresh-outline"} 
-                  size={22} 
-                  color={refreshing ? Colors.primary[500] : Colors.neutral[600]} 
-                />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.editButton} onPress={handleEditProfile}>
-                <Ionicons name="create-outline" size={22} color={Colors.neutral[600]} />
-              </TouchableOpacity>
-            </View>
+      <View style={styles.header}>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>Profile</Text>
+          <View style={styles.headerButtons}>
+            <TouchableOpacity style={styles.editButton} onPress={handleEditProfile}>
+              <Ionicons name="create-outline" size={22} color={Colors.neutral[600]} />
+            </TouchableOpacity>
           </View>
         </View>
+      </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Profile Card */}
@@ -493,100 +285,64 @@ export default function Profile() {
           </View>
         </View>
 
-          {/* Debug Info */}
-          {__DEV__ && user && (
-            <View style={styles.debugSection}>
-              <Text style={styles.debugTitle}>Debug Info</Text>
-              <Text style={styles.debugText}>Role: {user.role}</Text>
-              <Text style={styles.debugText}>Current Mode: {user.current_mode}</Text>
-              <Text style={styles.debugText}>Tasker App Status: {user.tasker_application_status || 'null'}</Text>
-              <Text style={styles.debugText}>User ID: {user.id}</Text>
-              <Text style={styles.debugText}>Auth User ID: {user.user_id}</Text>
-              <TouchableOpacity 
-                style={styles.syncButton} 
-                onPress={handleSyncProfile}
-                disabled={refreshing}
-              >
-                <Text style={styles.syncButtonText}>
-                  {refreshing ? 'Syncing...' : 'Sync Profile'}
-                </Text>
+        {/* Tasker Application Status / Role Switch */}
+        {user && (
+          <View style={styles.becomeTaskerSection}>
+            {user.tasker_application_status === 'pending' ? (
+              // Application Under Review
+              <View style={styles.applicationStatusBanner}>
+                <Ionicons name="time" size={24} color={Colors.warning[500]} />
+                <View style={styles.applicationStatusContent}>
+                  <Text style={styles.applicationStatusTitle}>Application Under Review</Text>
+                  <Text style={styles.applicationStatusSubtitle}>Your tasker application is being reviewed. You'll be notified once approved.</Text>
+                </View>
+              </View>
+            ) : user.tasker_application_status === 'approved' && (user.role === 'tasker' || user.role === 'both') ? (
+              // Application Approved - Show role switch
+              <TouchableOpacity style={styles.approvedStatusBanner} onPress={handleSwitchMode}>
+                <Ionicons name="checkmark-circle" size={24} color={Colors.success[500]} />
+                <View style={styles.applicationStatusContent}>
+                  <Text style={styles.approvedStatusTitle}>Application Approved!</Text>
+                  <Text style={styles.approvedStatusSubtitle}>
+                    You're now a tasker! {user.current_mode === 'customer' ? 'Switch to tasker mode to start earning.' : 'You are currently in tasker mode.'}
+                  </Text>
+                </View>
+                <Ionicons name="swap-horizontal" size={20} color={Colors.success[500]} />
               </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Tasker Application Status / Role Switch */}
-          {user && (
-            <View style={styles.becomeTaskerSection}>
-              {user.tasker_application_status === 'pending' ? (
-                // Application Under Review
-                <View style={styles.applicationStatusBanner}>
-                  <Ionicons name="time" size={24} color={Colors.warning[500]} />
-                  <View style={styles.applicationStatusContent}>
-                    <Text style={styles.applicationStatusTitle}>Application Under Review</Text>
-                    <Text style={styles.applicationStatusSubtitle}>Your tasker application is being reviewed. You'll be notified once approved.</Text>
-                  </View>
-                  <TouchableOpacity onPress={handleRefreshProfile} style={styles.refreshButton}>
-                    <Ionicons name="refresh" size={20} color={Colors.warning[500]} />
-                  </TouchableOpacity>
+            ) : user.tasker_application_status === 'approved' ? (
+              // Application approved but role not updated yet
+              <View style={styles.approvedStatusBanner}>
+                <Ionicons name="checkmark-circle" size={24} color={Colors.success[500]} />
+                <View style={styles.applicationStatusContent}>
+                  <Text style={styles.approvedStatusTitle}>Application Approved!</Text>
+                  <Text style={styles.approvedStatusSubtitle}>
+                    Your application has been approved! Please restart the app to update your profile.
+                  </Text>
                 </View>
-              ) : user.tasker_application_status === 'approved' && (user.role === 'tasker' || user.role === 'both') ? (
-                // Application Approved - Show role switch
-                <TouchableOpacity style={styles.approvedStatusBanner} onPress={handleSwitchMode}>
-                  <Ionicons name="checkmark-circle" size={24} color={Colors.success[500]} />
-                  <View style={styles.applicationStatusContent}>
-                    <Text style={styles.approvedStatusTitle}>Application Approved!</Text>
-                    <Text style={styles.approvedStatusSubtitle}>
-                      You're now a tasker! {user.current_mode === 'customer' ? 'Switch to tasker mode to start earning.' : 'You are currently in tasker mode.'}
-                    </Text>
-                  </View>
-                  <Ionicons name="swap-horizontal" size={20} color={Colors.success[500]} />
-                </TouchableOpacity>
-              ) : user.tasker_application_status === 'approved' ? (
-                // Application approved but role not updated yet - show refresh option
-                <View style={styles.approvedStatusBanner}>
-                  <Ionicons name="checkmark-circle" size={24} color={Colors.success[500]} />
-                  <View style={styles.applicationStatusContent}>
-                    <Text style={styles.approvedStatusTitle}>Application Approved!</Text>
-                    <Text style={styles.approvedStatusSubtitle}>
-                      Your application has been approved! Tap refresh to update your profile.
-                    </Text>
-                  </View>
-                  <TouchableOpacity onPress={handleRefreshProfile} style={styles.refreshButton}>
-                    <Ionicons name="refresh" size={20} color={Colors.success[500]} />
-                  </TouchableOpacity>
+              </View>
+            ) : user.tasker_application_status === 'rejected' ? (
+              // Application Rejected - Show reapply option
+              <TouchableOpacity style={styles.rejectedStatusBanner} onPress={handleBecomeTasker}>
+                <Ionicons name="close-circle" size={24} color={Colors.error[500]} />
+                <View style={styles.applicationStatusContent}>
+                  <Text style={styles.rejectedStatusTitle}>Application Rejected</Text>
+                  <Text style={styles.rejectedStatusSubtitle}>Your tasker application was not approved. Tap to reapply.</Text>
                 </View>
-              ) : user.tasker_application_status === 'rejected' ? (
-                // Application Rejected - Show reapply option
-                <TouchableOpacity style={styles.rejectedStatusBanner} onPress={handleBecomeTasker}>
-                  <Ionicons name="close-circle" size={24} color={Colors.error[500]} />
-                  <View style={styles.applicationStatusContent}>
-                    <Text style={styles.rejectedStatusTitle}>Application Rejected</Text>
-                    <Text style={styles.rejectedStatusSubtitle}>Your tasker application was not approved. Tap to reapply.</Text>
-                  </View>
-                  <Ionicons name="refresh" size={20} color={Colors.error[500]} />
-                </TouchableOpacity>
-              ) : (
-                // Become Tasker Button
-                <TouchableOpacity style={styles.becomeTaskerButton} onPress={handleBecomeTasker}>
-                  <Ionicons name="briefcase" size={24} color="#fff" />
-                  <View style={styles.becomeTaskerContent}>
-                    <Text style={styles.becomeTaskerTitle}>Become a Tasker</Text>
-                    <Text style={styles.becomeTaskerSubtitle}>Start earning by completing tasks</Text>
-                  </View>
-                  <Ionicons name="arrow-forward" size={20} color="#fff" />
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
-
-        {/* Debug Button - Temporary */}
-        <View style={styles.menuSection}>
-          <TouchableOpacity style={styles.menuItem} onPress={handleDebugStatus}>
-            <Ionicons name="bug-outline" size={24} color={Colors.neutral[600]} />
-            <Text style={styles.menuText}>Debug Status</Text>
-            <Ionicons name="chevron-forward" size={20} color={Colors.neutral[400]} />
-          </TouchableOpacity>
-        </View>
+                <Ionicons name="arrow-forward" size={20} color={Colors.error[500]} />
+              </TouchableOpacity>
+            ) : (
+              // Become Tasker Button
+              <TouchableOpacity style={styles.becomeTaskerButton} onPress={handleBecomeTasker}>
+                <Ionicons name="briefcase" size={24} color="#fff" />
+                <View style={styles.becomeTaskerContent}>
+                  <Text style={styles.becomeTaskerTitle}>Become a Tasker</Text>
+                  <Text style={styles.becomeTaskerSubtitle}>Start earning by completing tasks</Text>
+                </View>
+                <Ionicons name="arrow-forward" size={20} color="#fff" />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
 
         {/* Menu Items */}
         <View style={styles.menuSection}>
@@ -666,14 +422,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  refreshButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Colors.neutral[100],
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   editButton: {
     width: 44,
     height: 44,
@@ -681,39 +429,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.neutral[100],
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  debugSection: {
-    backgroundColor: Colors.neutral[100],
-    marginHorizontal: 20,
-    marginTop: 10,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: Colors.neutral[200],
-  },
-  debugTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.neutral[700],
-    marginBottom: 8,
-  },
-  debugText: {
-    fontSize: 12,
-    color: Colors.neutral[600],
-    marginBottom: 2,
-  },
-  syncButton: {
-    backgroundColor: Colors.primary[500],
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginTop: 8,
-    alignSelf: 'flex-start',
-  },
-  syncButtonText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: '600',
   },
   profileCard: {
     backgroundColor: Colors.background.primary,
@@ -1010,11 +725,6 @@ const styles = StyleSheet.create({
   rejectedStatusSubtitle: {
     fontSize: 14,
     color: Colors.error[600],
-  },
-  refreshButton: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: Colors.success[100],
   },
   loadingContainer: {
     flex: 1,

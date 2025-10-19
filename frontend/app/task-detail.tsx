@@ -151,6 +151,39 @@ export default function TaskDetail() {
     return date.toLocaleDateString()
   }
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'open': return Colors.warning[500]
+      case 'assigned': return Colors.primary[500]
+      case 'in_progress': return Colors.primary[500]
+      case 'completed': return Colors.success[500]
+      case 'cancelled': return Colors.error[500]
+      default: return Colors.neutral[500]
+    }
+  }
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'open': return 'time-outline'
+      case 'assigned': return 'person-outline'
+      case 'in_progress': return 'play-outline'
+      case 'completed': return 'checkmark-circle-outline'
+      case 'cancelled': return 'close-circle-outline'
+      default: return 'help-circle-outline'
+    }
+  }
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'open': return 'Open'
+      case 'assigned': return 'Assigned'
+      case 'in_progress': return 'In Progress'
+      case 'completed': return 'Completed'
+      case 'cancelled': return 'Cancelled'
+      default: return 'Unknown'
+    }
+  }
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -302,17 +335,40 @@ export default function TaskDetail() {
           </View>
         </View>
 
-        {/* Task Status Management */}
-        <TaskStatusManager
-          taskId={task.id}
-          currentStatus={task.status as any}
-          userId={user?.id || ''}
-          userRole={user?.currentMode === 'customer' ? 'customer' : 'tasker'}
-          onStatusUpdate={(newStatus) => {
-            setTask(prev => prev ? { ...prev, status: newStatus } : null)
-          }}
-          showHistory={true}
-        />
+        {/* Task Status Display */}
+        {task.customer_id === user?.id ? (
+          // Customer can manage status
+          <TaskStatusManager
+            taskId={task.id}
+            currentStatus={task.status as any}
+            userId={user?.id || ''}
+            userRole="customer"
+            onStatusUpdate={(newStatus) => {
+              setTask(prev => prev ? { ...prev, status: newStatus } : null)
+            }}
+            showHistory={true}
+          />
+        ) : (
+          // Tasker can only view status
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Task Status</Text>
+            <View style={styles.statusDisplay}>
+              <View style={[styles.statusBadge, { backgroundColor: getStatusColor(task.status) + '20' }]}>
+                <Ionicons 
+                  name={getStatusIcon(task.status)} 
+                  size={20} 
+                  color={getStatusColor(task.status)} 
+                />
+                <Text style={[styles.statusText, { color: getStatusColor(task.status) }]}>
+                  {getStatusLabel(task.status)}
+                </Text>
+              </View>
+              <Text style={styles.statusNote}>
+                Status updates are managed from your bookings page
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* Customer Rating */}
         <View style={styles.section}>
@@ -439,6 +495,9 @@ const styles = StyleSheet.create({
     color: Colors.neutral[900],
   },
   headerRight: {
+    width: 32,
+  },
+  placeholder: {
     width: 32,
   },
   content: {
@@ -649,5 +708,27 @@ const styles = StyleSheet.create({
   },
   navButtonDisabled: {
     opacity: 0.3,
+  },
+  statusDisplay: {
+    alignItems: 'center',
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 20,
+    marginBottom: 8,
+    gap: 8,
+  },
+  statusText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  statusNote: {
+    fontSize: 12,
+    color: Colors.neutral[500],
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
 })

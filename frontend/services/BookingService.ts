@@ -45,8 +45,6 @@ export class BookingService {
   // Get all bookings for a user (as customer or technician)
   static async getUserBookings(userId: string): Promise<Booking[]> {
     try {
-      console.log('🚀 BOOKING SERVICE - Getting bookings for userId:', userId)
-      
       // Get user's profile to determine if they're a customer or tasker
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
@@ -55,22 +53,18 @@ export class BookingService {
         .maybeSingle()
 
       if (profileError) {
-        console.error('🚀 BOOKING SERVICE - Error getting user profile:', profileError)
         throw profileError
       }
 
       if (!profile) {
-        console.log('🚀 BOOKING SERVICE - No profile found for userId:', userId)
-        console.log('🚀 BOOKING SERVICE - This means the user needs to complete their profile setup')
         return []
       }
 
       const profileId = profile.id
-      console.log('🚀 BOOKING SERVICE - Profile ID:', profileId, 'Role:', profile.role)
 
-      // Get accepted task applications as bookings
-      // Only show tasks where user is assigned to work on as a tasker
-      // Exclude tasks that the user created (those should be in "My Tasks" not "Bookings")
+      // Get task applications as bookings
+      // Show tasks where user is assigned to work on as a tasker
+      // Include all statuses to show completed tasks
       const { data: taskerApplications, error: taskerError } = await supabase
         .from('task_applications')
         .select(`
@@ -104,7 +98,7 @@ export class BookingService {
              category
            )
         `)
-        .eq('status', 'accepted')
+        // Remove status filter to get all applications for this tasker
         .eq('tasker_id', profileId)
         .neq('tasks.customer_id', profileId) // Exclude tasks created by the user
         .order('created_at', { ascending: false })
@@ -114,34 +108,29 @@ export class BookingService {
       // Only use tasker applications (tasks assigned to the user)
       const taskApplications = taskerApplications || []
       
-      console.log('🚀 BOOKING SERVICE - Found tasker applications:', taskApplications.length)
-      console.log('🚀 BOOKING SERVICE - Profile ID:', profileId)
-       console.log('🚀 BOOKING SERVICE - Tasker applications:', taskApplications.map(app => ({
-         id: app.id,
-         task_id: app.task_id,
-         tasker_id: app.tasker_id,
-         customer_id: (app.tasks as any)?.customer_id,
-         title: (app.tasks as any)?.title,
-         isUserTasker: app.tasker_id === profileId,
-         isUserCustomer: (app.tasks as any)?.customer_id === profileId,
-         tasksObject: app.tasks,
-         tasksType: typeof app.tasks
-       })))
-      
-      // Filter out any applications where user is the customer (extra safety check)
-      const filteredApplications = taskApplications.filter(app => (app.tasks as any)?.customer_id !== profileId)
-      console.log('🚀 BOOKING SERVICE - After filtering out customer tasks:', filteredApplications.length)
+      // Filter applications to only show accepted and completed ones
+      const filteredApplications = taskApplications.filter(app => {
+        const isNotCustomer = (app.tasks as any)?.customer_id !== profileId
+        const isAcceptedOrCompleted = ['accepted', 'completed'].includes(app.status)
+        return isNotCustomer && isAcceptedOrCompleted
+      })
 
       // Convert task applications to booking format
       const taskBookings: Booking[] = (filteredApplications || []).map(app => {
         const task = app.tasks as any // tasks is an object, not an array
-        console.log('🚀 BOOKING SERVICE - Processing task:', {
-          taskId: task?.id,
-          customerId: task?.customer_id,
-          userId: task?.user_id,
-          title: task?.title,
-          fullTask: task
-        })
+        
+        // Map task status to booking status
+        let bookingStatus: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled'
+        if (task?.status === 'completed') {
+          bookingStatus = 'completed'
+        } else if (task?.status === 'cancelled') {
+          bookingStatus = 'cancelled'
+        } else if (task?.status === 'in_progress') {
+          bookingStatus = 'in_progress'
+        } else {
+          bookingStatus = 'confirmed'
+        }
+        
         return {
           id: `task_${app.id}`,
           customer_id: task?.customer_id,
@@ -161,7 +150,7 @@ export class BookingService {
           zip_code: task?.zip_code,
           latitude: task?.latitude,
           longitude: task?.longitude,
-          status: 'confirmed' as const,
+          status: bookingStatus,
           total_amount: app.proposed_price || task?.budget,
           payment_status: task?.payment_status as 'pending' | 'paid' | 'refunded' || 'pending',
           customer_notes: task?.special_instructions,
@@ -186,10 +175,6 @@ export class BookingService {
       const allTechnicianIds = [...new Set(taskBookings.map(b => b.technician_id).filter(Boolean))]
       const allCustomerUserIds = [...new Set(taskBookings.map(b => b.task_user_id).filter(Boolean))]
 
-      console.log('🚀 BOOKING SERVICE - Customer IDs to lookup:', allCustomerIds)
-      console.log('🚀 BOOKING SERVICE - Technician IDs to lookup:', allTechnicianIds)
-      console.log('🚀 BOOKING SERVICE - Customer User IDs to lookup:', allCustomerUserIds)
-
       // Get names for all users - try both customer_id and user_id lookups
       const [customerResults, technicianResults, customerByUserIdResults] = await Promise.all([
         allCustomerIds.length > 0 ? supabase.from('profiles').select('id, full_name').in('id', allCustomerIds) : { data: [], error: null },
@@ -198,10 +183,6 @@ export class BookingService {
         allCustomerUserIds.length > 0 ? supabase.from('profiles').select('id, user_id, full_name').in('user_id', allCustomerUserIds) : { data: [], error: null }
       ])
 
-      console.log('🚀 BOOKING SERVICE - Customer lookup results:', customerResults.data)
-      console.log('🚀 BOOKING SERVICE - Technician lookup results:', technicianResults.data)
-      console.log('🚀 BOOKING SERVICE - Customer by user_id results:', customerByUserIdResults.data)
-
       const customerMap = new Map(customerResults.data?.map(p => [p.id, p.full_name]) || [])
       const technicianMap = new Map(technicianResults.data?.map(p => [p.id, p.full_name]) || [])
       
@@ -209,9 +190,6 @@ export class BookingService {
       customerByUserIdResults.data?.forEach(profile => {
         customerMap.set(profile.id, profile.full_name)
       })
-
-      console.log('🚀 BOOKING SERVICE - Customer map:', Object.fromEntries(customerMap))
-      console.log('🚀 BOOKING SERVICE - Technician map:', Object.fromEntries(technicianMap))
 
       // Format all bookings with names
       const allBookings = taskBookings.map(booking => {
@@ -223,22 +201,12 @@ export class BookingService {
           customerName = customerByUserId?.full_name
         }
         
-        console.log('🚀 BOOKING SERVICE - Final booking mapping:', {
-          bookingId: booking.id,
-          customerId: booking.customer_id,
-          taskUserId: booking.task_user_id,
-          customerName: customerName || 'Unknown Customer',
-          technicianName: technicianMap.get(booking.technician_id) || 'Unknown Technician'
-        })
-        
         return {
           ...booking,
           customer_name: customerName || 'Unknown Customer',
           technician_name: technicianMap.get(booking.technician_id) || 'Unknown Technician'
         }
       })
-
-      console.log('🚀 BOOKING SERVICE - Final bookings count:', allBookings.length)
 
       // Sort by creation date
       return allBookings.sort((a, b) => 
@@ -291,7 +259,6 @@ export class BookingService {
           customerName,
           technicianName
         )
-        console.log('🚀 BOOKING SERVICE - Booking notifications sent for booking:', data.id)
       } catch (notificationError) {
         console.error('Error sending booking notifications:', notificationError)
         // Don't throw here - booking should succeed even if notifications fail
@@ -382,8 +349,6 @@ export class BookingService {
                   customerName
                 )
               }
-
-              console.log('🚀 BOOKING SERVICE - Application status notification sent for task:', applicationData.task_id)
             }
           }
         } catch (notificationError) {
@@ -432,8 +397,6 @@ export class BookingService {
               customerName,
               technicianName
             )
-
-            console.log('🚀 BOOKING SERVICE - Direct booking status notification sent for booking:', bookingId)
           }
         } catch (notificationError) {
           console.error('Error sending direct booking status notification:', notificationError)
@@ -694,18 +657,11 @@ export class BookingService {
   // Get or create chat for a booking
   static async getOrCreateChatForBooking(bookingId: string, customerId: string, technicianId: string): Promise<string | null> {
     try {
-      console.log('🚀 BOOKING SERVICE - Creating chat for booking:', {
-        bookingId,
-        customerId,
-        technicianId
-      })
-
       // For task-based bookings, extract task_id from bookingId
       let taskId: string | null = null
       
       if (bookingId.startsWith('task_')) {
         const taskApplicationId = bookingId.replace('task_', '')
-        console.log('🚀 BOOKING SERVICE - Task application ID:', taskApplicationId)
         
         // Get task_id from task_applications
         const { data: application, error: appError } = await supabase
@@ -715,19 +671,15 @@ export class BookingService {
           .single()
 
         if (appError || !application) {
-          console.error('🚀 BOOKING SERVICE - Error getting task application:', appError)
           return null
         }
         
         taskId = application.task_id
-        console.log('🚀 BOOKING SERVICE - Found task ID:', taskId)
       } else {
-        console.error('🚀 BOOKING SERVICE - Only task-based bookings are supported')
         return null
       }
 
       if (!taskId) {
-        console.error('🚀 BOOKING SERVICE - No task_id found for booking')
         return null
       }
 
@@ -735,25 +687,15 @@ export class BookingService {
       const { ChatService } = await import('./ChatService')
       
       // Create chat between customer and technician
-      console.log('🚀 BOOKING SERVICE - Calling ChatService.getOrCreateChat with:', {
-        taskId,
-        customerId,
-        technicianId
-      })
-      
       const chat = await ChatService.getOrCreateChat(taskId, customerId, technicianId)
       
-      console.log('🚀 BOOKING SERVICE - Chat result:', chat)
-      
       if (chat) {
-        console.log('🚀 BOOKING SERVICE - Chat created successfully for booking, ID:', chat.id)
         return chat.id
       } else {
-        console.error('🚀 BOOKING SERVICE - Failed to create chat for booking')
         return null
       }
     } catch (error) {
-      console.error('🚀 BOOKING SERVICE - Error getting/creating chat for booking:', error)
+      console.error('Error getting/creating chat for booking:', error)
       return null
     }
   }
@@ -761,8 +703,6 @@ export class BookingService {
   // Update booking status and sync with task status
   static async updateBookingAndTaskStatus(bookingId: string, status: Booking['status'], updatedByUserId?: string): Promise<boolean> {
     try {
-      console.log('BookingService: Updating booking status', { bookingId, status, updatedByUserId })
-      
       // Check if this is a task-based booking
       if (bookingId.startsWith('task_')) {
         const taskApplicationId = bookingId.replace('task_', '')
@@ -785,11 +725,8 @@ export class BookingService {
           .single()
 
         if (appError) {
-          console.error('BookingService: Error getting application:', appError)
           throw appError
         }
-
-        console.log('BookingService: Found application:', application)
 
         // Map booking status to task application and task status
         let taskAppStatus: string
@@ -821,8 +758,6 @@ export class BookingService {
             taskStatus = 'assigned'
         }
 
-        console.log('BookingService: Updating application status', { taskAppStatus, taskStatus })
-
         // Update task application status
         const { error: appUpdateError } = await supabase
           .from('task_applications')
@@ -833,7 +768,6 @@ export class BookingService {
           .eq('id', taskApplicationId)
 
         if (appUpdateError) {
-          console.error('BookingService: Error updating application:', appUpdateError)
           throw appUpdateError
         }
 
@@ -850,26 +784,55 @@ export class BookingService {
           .eq('id', application.task_id)
 
         if (taskUpdateError) {
-          console.error('BookingService: Error updating task:', taskUpdateError)
           throw taskUpdateError
         }
 
-        console.log('BookingService: Successfully updated booking and task status')
+        // If task is completed, create payment requirement for customer and delete chat
+        if (status === 'completed') {
+          try {
+            const { PaymentService } = await import('./PaymentService')
+            const { ChatService } = await import('./ChatService')
+            
+            // Get task details for payment
+            const { data: taskDetails } = await supabase
+              .from('tasks')
+              .select('title, final_price, budget, customer_id, tasker_id')
+              .eq('id', application.task_id)
+              .single()
 
-        // Create status update record for audit trail
-        const { error: statusUpdateError } = await supabase
-          .from('task_status_updates')
-          .insert({
-            task_id: application.task_id,
-            status: taskStatus as any,
-            updated_by: updatedByUserId || application.tasks[0]?.customer_id,
-            reason: `Booking status changed to ${status}`,
-            notes: `Booking ${bookingId} status updated to ${status}`
-          })
+            if (taskDetails) {
+              const paymentAmount = taskDetails.final_price || taskDetails.budget
+              
+              // Create payment requirement
+              await PaymentService.createTaskPayment(
+                application.task_id,
+                taskDetails.customer_id,
+                paymentAmount,
+                `Payment for completed task: ${taskDetails.title}`
+              )
 
-        if (statusUpdateError) {
-          console.error('Error creating status update record:', statusUpdateError)
-          // Don't fail the main operation
+              // Notify tasker that payment is ready
+              if (taskDetails.tasker_id) {
+                await UnifiedNotificationService.notifyTaskerPaymentReady(
+                  application.task_id,
+                  taskDetails.title,
+                  taskDetails.tasker_id,
+                  paymentAmount
+                )
+              }
+            }
+
+            // Delete chat and all messages for this task
+            try {
+              const chatDeleted = await (ChatService as any).deleteChatByTaskId(application.task_id)
+            } catch (chatError) {
+              console.error('Error deleting chat for completed task:', chatError)
+              // Don't fail the main operation
+            }
+          } catch (paymentError) {
+            console.error('Error creating payment requirement:', paymentError)
+            // Don't fail the main operation
+          }
         }
 
         // Send notifications
@@ -918,7 +881,6 @@ export class BookingService {
       const message = statusMessages[bookingStatus]
       if (message) {
         // TODO: Fix notification service calls with correct parameters
-        console.log('🚀 BOOKING SERVICE - Would send notification:', message)
         // Notify customer
         // await SimpleNotificationService.createTaskNotification(
         //   task.title,

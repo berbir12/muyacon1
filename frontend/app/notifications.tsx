@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  RefreshControl,
   Alert
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
@@ -30,7 +29,6 @@ export default function Notifications() {
     clearAllNotifications
   } = useNotifications()
 
-  const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -39,9 +37,7 @@ export default function Notifications() {
   }, [isAuthenticated, isLoading])
 
   const handleRefresh = async () => {
-    setRefreshing(true)
     await refreshNotifications()
-    setRefreshing(false)
   }
 
   const handleMarkAsRead = async (notificationId: string) => {
@@ -120,7 +116,7 @@ export default function Notifications() {
       case 'application':
         return Colors.warning[500]
       case 'booking':
-        return Colors.info[500]
+        return Colors.primary[500]
       case 'payment':
         return Colors.success[600]
       case 'system':
@@ -140,6 +136,7 @@ export default function Notifications() {
     if (diffInHours < 168) return `${Math.floor(diffInHours / 24)}d ago`
     return date.toLocaleDateString()
   }
+
 
   if (isLoading) {
     return (
@@ -186,9 +183,6 @@ export default function Notifications() {
 
       <ScrollView 
         style={styles.content}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-        }
       >
         {loading ? (
           <View style={styles.loadingContainer}>
@@ -245,14 +239,6 @@ export default function Notifications() {
                   {notification.message}
                 </Text>
 
-                {notification.data && Object.keys(notification.data).length > 0 && (
-                  <View style={styles.notificationData}>
-                    <Text style={styles.dataLabel}>Additional Info:</Text>
-                    <Text style={styles.dataText}>
-                      {JSON.stringify(notification.data, null, 2)}
-                    </Text>
-                  </View>
-                )}
               </View>
 
               <TouchableOpacity
@@ -400,23 +386,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.neutral[700],
     lineHeight: 20,
-  },
-  notificationData: {
-    marginTop: 8,
-    padding: 8,
-    backgroundColor: Colors.neutral[100],
-    borderRadius: 6,
-  },
-  dataLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.neutral[600],
-    marginBottom: 4,
-  },
-  dataText: {
-    fontSize: 11,
-    color: Colors.neutral[500],
-    fontFamily: 'monospace',
   },
   deleteButton: {
     position: 'absolute',

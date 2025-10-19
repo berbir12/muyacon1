@@ -103,8 +103,7 @@ export default function Settings() {
   const handleSwitchMode = () => {
     if (!user) return
     
-    const newMode = user.currentMode === 'customer' ? 'tasker' : 'customer'
-    switchMode(newMode)
+    switchMode()
   }
 
   const settingsSections = [
@@ -203,6 +202,20 @@ export default function Settings() {
           onPress: () => router.push('/contact-us'),
           showArrow: true
         },
+        {
+          icon: 'document-text-outline',
+          title: 'Terms of Service',
+          subtitle: 'Read our terms and conditions',
+          onPress: () => router.push('/terms-of-service'),
+          showArrow: true
+        },
+        {
+          icon: 'shield-checkmark-outline',
+          title: 'Privacy Policy',
+          subtitle: 'Learn how we protect your data',
+          onPress: () => router.push('/privacy-policy'),
+          showArrow: true
+        },
       ]
     }
   ]
@@ -257,18 +270,18 @@ export default function Settings() {
                     styles.settingItem,
                     itemIndex === section.items.length - 1 && styles.lastItem
                   ]}
-                  onPress={item.onPress}
+                  onPress={'onPress' in item ? item.onPress : undefined}
                 >
                   <View style={styles.settingLeft}>
                     <View style={styles.iconContainer}>
                       <Ionicons 
                         name={item.icon as any} 
                         size={20} 
-                        color={item.color || Colors.neutral[600]} 
+                        color={'color' in item ? item.color || Colors.neutral[600] : Colors.neutral[600]} 
                       />
                     </View>
                     <View style={styles.settingText}>
-                      <Text style={[styles.settingTitle, item.color && { color: item.color }]}>
+                      <Text style={[styles.settingTitle, 'color' in item && item.color && { color: item.color }]}>
                         {item.title}
                       </Text>
                       <Text style={styles.settingSubtitle}>{item.subtitle}</Text>
@@ -276,13 +289,13 @@ export default function Settings() {
                   </View>
                   {'switch' in item && item.switch ? (
                     <Switch
-                      value={Boolean(item.value)}
-                      onValueChange={item.onToggle}
+                      value={Boolean('value' in item ? item.value : false)}
+                      onValueChange={'onToggle' in item ? item.onToggle : () => {}}
                       trackColor={{ false: Colors.neutral[300], true: Colors.primary[500] }}
                       thumbColor={Colors.background.primary}
                     />
                   ) : (
-                    item.showArrow && (
+                    'showArrow' in item && item.showArrow && (
                       <Ionicons name="chevron-forward" size={20} color={Colors.neutral[400]} />
                     )
                   )}

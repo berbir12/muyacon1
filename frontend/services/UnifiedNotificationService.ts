@@ -47,7 +47,6 @@ export class UnifiedNotificationService {
       // Verify that the auth user ID actually exists in auth.users
       // Note: We can't directly query auth.users from the client, so we'll skip this validation
       // and rely on the database foreign key constraint to handle invalid user IDs
-      console.log('✅ Auth user ID validation skipped (auth.users not accessible from client):', authUserId)
       return authUserId
     } catch (error) {
       console.error('Error getting auth user ID from profile ID:', error)
@@ -66,7 +65,6 @@ export class UnifiedNotificationService {
       // Subscribe to real-time notifications
       await this.subscribeToNotifications()
       
-      console.log('Notification service initialized for user:', userId)
     } catch (error) {
       console.error('Error initializing notification service:', error)
     }
@@ -88,7 +86,6 @@ export class UnifiedNotificationService {
             filter: `user_id=eq.${this.currentUserId}`
           },
           (payload) => {
-            console.log('New notification received:', payload)
             const notification = payload.new as Notification
             
             // Send push notification
@@ -107,7 +104,6 @@ export class UnifiedNotificationService {
             filter: `user_id=eq.${this.currentUserId}`
           },
           (payload) => {
-            console.log('Notification updated:', payload)
             const notification = payload.new as Notification
             
             // Notify subscribers
@@ -117,7 +113,6 @@ export class UnifiedNotificationService {
         .subscribe()
 
       this.isSubscribed = true
-      console.log('Subscribed to real-time notifications')
     } catch (error) {
       console.error('Error subscribing to notifications:', error)
     }
@@ -130,7 +125,6 @@ export class UnifiedNotificationService {
       this.isSubscribed = false
       this.subscriptions.clear()
       this.currentUserId = null
-      console.log('Unsubscribed from notifications')
     } catch (error) {
       console.error('Error unsubscribing from notifications:', error)
     }
@@ -257,12 +251,6 @@ export class UnifiedNotificationService {
     data?: any
   ): Promise<boolean> {
     try {
-      console.log('🚀 UNIFIED NOTIFICATION SERVICE - Creating notification in database')
-      console.log('  - User ID:', userId)
-      console.log('  - Title:', title)
-      console.log('  - Message:', message)
-      console.log('  - Type:', type)
-      console.log('  - Data:', data)
       
       // Note: We can't directly query auth.users from the client
       // The database foreign key constraint will handle invalid user IDs
@@ -284,7 +272,6 @@ export class UnifiedNotificationService {
         throw error
       }
       
-      console.log('✅ UNIFIED NOTIFICATION SERVICE - Notification created successfully:', result)
       return true
     } catch (error) {
       console.error('❌ UNIFIED NOTIFICATION SERVICE - Error creating notification:', error)
@@ -405,11 +392,6 @@ export class UnifiedNotificationService {
 
   // Notify when someone applies for a task
   static async notifyTaskApplication(taskId: string, taskTitle: string, customerId: string, taskerName: string, applicationId: string): Promise<void> {
-    console.log('🚀 UNIFIED NOTIFICATION SERVICE - Creating task application notification')
-    console.log('  - Customer Profile ID:', customerId)
-    console.log('  - Task Title:', taskTitle)
-    console.log('  - Tasker Name:', taskerName)
-    console.log('  - Application ID:', applicationId)
     
     // Convert profile ID to auth user ID
     const authUserId = await this.getAuthUserIdFromProfileId(customerId)
@@ -418,7 +400,6 @@ export class UnifiedNotificationService {
       return
     }
     
-    console.log('  - Customer Auth User ID:', authUserId)
     
     const success = await this.createNotification(
       authUserId,
@@ -428,7 +409,6 @@ export class UnifiedNotificationService {
       { task_id: taskId, application_id: applicationId, action: 'task_application' }
     )
     
-    console.log('✅ UNIFIED NOTIFICATION SERVICE - Notification creation result:', success)
   }
 
   // Notify when task application is accepted
@@ -644,6 +624,20 @@ export class UnifiedNotificationService {
 
   // ===== PAYMENT NOTIFICATIONS =====
 
+  // Notify when payment is required
+  static async notifyPaymentRequired(taskId: string, taskTitle: string, customerUserId: string, amount: number): Promise<void> {
+    const title = 'Payment Required'
+    const message = `Please pay ${amount} ETB for the completed task: "${taskTitle}"`
+
+    await this.createNotification(
+      customerUserId, // This should be auth.users.id
+      title,
+      message,
+      'payment',
+      { task_id: taskId, amount, task_title: taskTitle, action: 'payment_required' }
+    )
+  }
+
   // Notify when payment is processed
   static async notifyPaymentProcessed(userId: string, amount: number, taskTitle: string, status: 'success' | 'failed'): Promise<void> {
     const title = status === 'success' ? 'Payment Successful' : 'Payment Failed'
@@ -657,6 +651,32 @@ export class UnifiedNotificationService {
       message,
       'payment',
       { amount, task_title: taskTitle, status, action: 'payment_processed' }
+    )
+  }
+
+  // Notify when payment is completed and tasker should be paid
+  static async notifyTaskerPaymentReady(taskId: string, taskTitle: string, taskerProfileId: string, amount: number): Promise<void> {
+    const title = 'Payment Ready'
+    const message = `Payment of ${amount} ETB is ready for your completed task: "${taskTitle}"`
+
+    // Get the user_id from the tasker's profile ID
+    const { data: taskerProfile, error: profileError } = await supabase
+      .from('profiles')
+      .select('user_id')
+      .eq('id', taskerProfileId)
+      .single()
+
+    if (profileError || !taskerProfile) {
+      console.error('UnifiedNotificationService: Tasker profile not found for ID:', taskerProfileId, profileError)
+      return
+    }
+
+    await this.createNotification(
+      taskerProfile.user_id, // Use auth.users.id
+      title,
+      message,
+      'payment',
+      { task_id: taskId, amount, task_title: taskTitle, action: 'tasker_payment_ready' }
     )
   }
 

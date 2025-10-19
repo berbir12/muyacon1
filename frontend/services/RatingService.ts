@@ -428,8 +428,8 @@ export class RatingService {
         user_id: item.user_id,
         average_rating: item.average_rating,
         total_reviews: item.total_reviews,
-        name: item.profile?.name || 'Anonymous',
-        avatar_url: item.profile?.avatar_url
+        name: item.profile?.[0]?.name || 'Anonymous',
+        avatar_url: item.profile?.[0]?.avatar_url
       }))
     } catch (error) {
       const appError = handleError(error, 'getTopRatedUsers')

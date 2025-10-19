@@ -19,8 +19,10 @@ import { useLanguage } from '../contexts/LanguageContext'
 import { TaskService, Task } from '../services/TaskService'
 import { TaskApplicationService } from '../services/TaskApplicationService'
 import { SearchService, SearchFilters } from '../services/SearchService'
+import { PaymentService, Payment } from '../services/PaymentService'
 import AdvancedSearch from '../components/AdvancedSearch'
 import LoadingErrorState from '../components/LoadingErrorState'
+import PaymentModal from '../components/PaymentModal'
 import Colors from '../constants/Colors'
 
 const { width } = Dimensions.get('window')
@@ -66,6 +68,9 @@ export default function Jobs() {
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false)
   const [searchFilters, setSearchFilters] = useState<SearchFilters>({})
   const [error, setError] = useState<string | null>(null)
+  const [pendingPayments, setPendingPayments] = useState<Payment[]>([])
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null)
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -76,6 +81,7 @@ export default function Jobs() {
   useEffect(() => {
     if (isAuthenticated) {
       loadTasks()
+      loadPendingPayments()
     }
   }, [activeTab, user, isAuthenticated])
 
@@ -84,6 +90,7 @@ export default function Jobs() {
     useCallback(() => {
       if (isAuthenticated && user) {
         loadTasks() // This will call checkAppliedTasks internally
+        loadPendingPayments()
       }
     }, [isAuthenticated, user, activeTab])
   )
@@ -106,11 +113,9 @@ export default function Jobs() {
 
   const loadTasks = async () => {
     if (!user) {
-      console.log('Jobs: No user found, cannot load tasks')
       return
     }
     
-    console.log('Jobs: Loading tasks for user:', user.id, 'user_id:', user.user_id, user.name, 'activeTab:', activeTab)
     
     setLoading(true)
     try {
@@ -122,7 +127,6 @@ export default function Jobs() {
         fetchedTasks = await TaskService.getMyTasks(user.user_id)
       }
       
-      console.log('Jobs: Loaded tasks:', fetchedTasks.length)
       setTasks(fetchedTasks)
       
       // Check which tasks user has already applied to
@@ -140,14 +144,12 @@ export default function Jobs() {
   const checkAppliedTasks = async (tasks: Task[]) => {
     if (!user) return
 
-    console.log('Jobs: Checking applied tasks for', tasks.length, 'tasks')
     const appliedSet = new Set<string>()
     
     // Check each task to see if user has applied
     for (const task of tasks) {
       try {
         const hasApplied = await TaskApplicationService.hasUserAppliedToTask(user.user_id, task.id)
-        console.log(`Jobs: Task ${task.id} - hasApplied: ${hasApplied}`)
         if (hasApplied) {
           appliedSet.add(task.id)
         }
@@ -156,8 +158,43 @@ export default function Jobs() {
       }
     }
     
-    console.log('Jobs: Applied tasks set:', Array.from(appliedSet))
     setAppliedTasks(appliedSet)
+  }
+
+  const loadPendingPayments = async () => {
+    if (!user) return
+    
+    try {
+      const payments = await PaymentService.getPendingPayments(user.user_id)
+      setPendingPayments(payments)
+    } catch (error) {
+      console.error('Error loading pending payments:', error)
+    }
+  }
+
+  const handlePayNow = async (task: Task) => {
+    if (!user || !task.id) return
+
+    // Find the pending payment for this task
+    const pendingPayment = pendingPayments.find(p => p.task_id === task.id)
+    
+    if (!pendingPayment) {
+      Alert.alert('Error', 'No pending payment found for this task')
+      return
+    }
+
+    setSelectedPayment(pendingPayment)
+    setShowPaymentModal(true)
+  }
+
+  const handlePaymentSuccess = () => {
+    loadPendingPayments() // Reload pending payments
+    loadTasks() // Reload tasks to update status
+  }
+
+  const hasPendingPayment = (task: Task) => {
+    const hasPayment = pendingPayments.some(p => p.task_id === task.id)
+    return hasPayment
   }
 
   const handleAdvancedSearch = async (filters: SearchFilters) => {
@@ -676,36 +713,61 @@ export default function Jobs() {
             )}
           </View>
 
-                <TouchableOpacity 
-                  style={[
-                    styles.actionButton,
-                    activeTab === 'available' && appliedTasks.has(task.id) && styles.appliedButton
-                  ]}
-                  onPress={() => {
-                    if (activeTab === 'available') {
+                {/* Action Button - Different for available vs my tasks */}
+                {activeTab === 'available' ? (
+                  <TouchableOpacity 
+                    style={[
+                      styles.actionButton,
+                      appliedTasks.has(task.id) && styles.appliedButton
+                    ]}
+                    onPress={() => {
                       if (appliedTasks.has(task.id)) {
                         Alert.alert('Already Applied', 'You have already applied to this task.')
                       } else {
                         handleApplyToTask(task.id)
                       }
-                    } else {
-                      router.push({
-                        pathname: '/task-applications',
-                        params: { taskId: task.id }
-                      })
-                    }
-                  }}
-                >
-                  <Text style={[
-                    styles.actionButtonText,
-                    activeTab === 'available' && appliedTasks.has(task.id) && styles.appliedButtonText
-                  ]}>
-                    {activeTab === 'available' 
-                      ? (appliedTasks.has(task.id) ? 'Already Applied' : 'Apply')
-                      : 'View Applications'
-                    }
-                  </Text>
-                </TouchableOpacity>
+                    }}
+                  >
+                    <Text style={[
+                      styles.actionButtonText,
+                      appliedTasks.has(task.id) && styles.appliedButtonText
+                    ]}>
+                      {appliedTasks.has(task.id) ? 'Already Applied' : 'Apply'}
+                    </Text>
+                  </TouchableOpacity>
+                ) : (
+                  // My Tasks - Show different actions based on task status
+                  <>
+                    {task.status === 'completed' ? (
+                      hasPendingPayment(task) ? (
+                        <TouchableOpacity 
+                          style={[styles.actionButton, styles.payButton]}
+                          onPress={() => handlePayNow(task)}
+                        >
+                          <Ionicons name="card" size={16} color="#fff" />
+                          <Text style={styles.actionButtonText}>Pay Now</Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <View style={styles.completedBadge}>
+                          <Ionicons name="checkmark-circle" size={16} color={Colors.success[500]} />
+                          <Text style={styles.completedText}>Completed & Paid</Text>
+                        </View>
+                      )
+                    ) : (
+                      <TouchableOpacity 
+                        style={styles.actionButton}
+                        onPress={() => {
+                          router.push({
+                            pathname: '/task-applications',
+                            params: { taskId: task.id }
+                          })
+                        }}
+                      >
+                        <Text style={styles.actionButtonText}>View Applications</Text>
+                      </TouchableOpacity>
+                    )}
+                  </>
+                )}
         </View>
             </TouchableOpacity>
           ))}
@@ -718,6 +780,17 @@ export default function Jobs() {
         onClose={() => setShowAdvancedSearch(false)}
         onSearch={handleAdvancedSearch}
         initialFilters={searchFilters}
+      />
+
+      {/* Payment Modal */}
+      <PaymentModal
+        visible={showPaymentModal}
+        onClose={() => {
+          setShowPaymentModal(false)
+          setSelectedPayment(null)
+        }}
+        payment={selectedPayment}
+        onPaymentSuccess={handlePaymentSuccess}
       />
     </SafeAreaView>
   )
@@ -1097,6 +1170,26 @@ const styles = StyleSheet.create({
   },
   appliedButtonText: {
     color: Colors.neutral[600],
+  },
+  payButton: {
+    backgroundColor: Colors.success[600],
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  completedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.success[100],
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 6,
+  },
+  completedText: {
+    color: Colors.success[600],
+    fontSize: 12,
+    fontWeight: '600',
   },
   emptyState: {
     alignItems: 'center',

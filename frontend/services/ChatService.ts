@@ -55,7 +55,6 @@ export class ChatService {
   // Get all chats for a user
   static async getUserChats(userId: string): Promise<Chat[]> {
     try {
-      console.log('🚀 CHAT SERVICE - Getting user chats for userId:', userId)
       const { data, error } = await supabase
         .from('chats')
         .select(`
@@ -82,11 +81,8 @@ export class ChatService {
         .order('last_message_at', { ascending: false, nullsFirst: false })
 
       if (error) {
-        console.error('🚀 CHAT SERVICE - Error getting user chats:', error)
         throw error
       }
-
-      console.log('🚀 CHAT SERVICE - Found chats:', data)
 
       // Get unread counts for each chat
       const chatsWithUnreadCounts = await Promise.all(
@@ -106,14 +102,7 @@ export class ChatService {
   // Get or create a chat for a task
   static async getOrCreateChat(taskId: string, customerId: string, taskerId: string): Promise<Chat | null> {
     try {
-      console.log('🚀 CHAT SERVICE - Getting or creating chat:', {
-        taskId,
-        customerId,
-        taskerId
-      })
-
       // First, try to find existing chat
-      console.log('🚀 CHAT SERVICE - Searching for existing chat...')
       const { data: existingChat, error: findError } = await supabase
         .from('chats')
         .select(`
@@ -141,22 +130,12 @@ export class ChatService {
         .eq('tasker_id', taskerId)
         .single()
 
-      console.log('🚀 CHAT SERVICE - Search result:', { existingChat, findError })
 
       if (existingChat && !findError) {
-        console.log('🚀 CHAT SERVICE - Found existing chat:', existingChat)
         return existingChat
       }
 
-      console.log('🚀 CHAT SERVICE - No existing chat found, creating new one')
-
       // Create new chat if it doesn't exist
-      console.log('🚀 CHAT SERVICE - Inserting new chat with data:', {
-        task_id: taskId,
-        customer_id: customerId,
-        tasker_id: taskerId
-      })
-      
       const { data: newChat, error: createError } = await supabase
         .from('chats')
         .insert({
@@ -187,14 +166,12 @@ export class ChatService {
         .single()
 
       if (createError) {
-        console.error('🚀 CHAT SERVICE - Error creating chat:', createError)
         throw createError
       }
       
-      console.log('🚀 CHAT SERVICE - Chat created successfully:', newChat)
       return newChat
     } catch (error) {
-      console.error('🚀 CHAT SERVICE - Error in getOrCreateChat:', error)
+      console.error('Error in getOrCreateChat:', error)
       return null
     }
   }
@@ -238,13 +215,6 @@ export class ChatService {
   // Send a message
   static async sendMessage(chatId: string, senderId: string, content: string, messageType: 'text' | 'image' | 'file' = 'text'): Promise<Message | null> {
     try {
-      console.log('🚀 CHAT SERVICE - Sending message:', {
-        chatId,
-        senderId,
-        content,
-        messageType
-      })
-
       const { data, error } = await supabase
         .from('messages_new')
         .insert({
@@ -257,12 +227,9 @@ export class ChatService {
         .single()
 
       if (error) {
-        console.error('🚀 CHAT SERVICE - Error inserting message:', error)
         throw error
       }
 
-      console.log('🚀 CHAT SERVICE - Message inserted successfully:', data)
-      
       // Get sender information
       const { data: senderData } = await supabase
         .from('profiles')
@@ -301,7 +268,6 @@ export class ChatService {
               content,
               senderName
             )
-            console.log('🚀 CHAT SERVICE - Message notification sent for chat:', chatId)
           }
         }
       } catch (notificationError) {
@@ -474,12 +440,67 @@ export class ChatService {
   // Send typing indicator (placeholder - can be implemented later)
   static async sendTypingIndicator(chatId: string, isTyping: boolean): Promise<void> {
     // This is a placeholder - typing indicators can be implemented later
-    console.log(`Typing indicator: ${isTyping} for chat ${chatId}`)
   }
 
   // Send message to chat (alias for sendMessage)
   static async sendMessageToChat(chatId: string, messageText: string, senderId: string): Promise<boolean> {
     const message = await this.sendMessage(chatId, senderId, messageText)
     return message !== null
+  }
+
+  // Delete chat and all messages (used when task is completed)
+  static async deleteChatAndMessages(chatId: string): Promise<boolean> {
+    try {
+      // First, delete all messages in the chat
+      const { error: messagesError } = await supabase
+        .from('messages_new')
+        .delete()
+        .eq('chat_id', chatId)
+
+      if (messagesError) {
+        throw messagesError
+      }
+
+      // Then, delete the chat itself
+      const { error: chatError } = await supabase
+        .from('chats')
+        .delete()
+        .eq('id', chatId)
+
+      if (chatError) {
+        throw chatError
+      }
+
+      return true
+    } catch (error) {
+      console.error('Error deleting chat and messages:', error)
+      return false
+    }
+  }
+
+  // Delete chat by task ID (used when task is completed)
+  static async deleteChatByTaskId(taskId: string): Promise<boolean> {
+    try {
+      // First, find the chat for this task
+      const { data: chat, error: findError } = await supabase
+        .from('chats')
+        .select('id')
+        .eq('task_id', taskId)
+        .single()
+
+      if (findError) {
+        return true // No chat to delete, consider it successful
+      }
+
+      if (!chat) {
+        return true // No chat to delete, consider it successful
+      }
+
+      // Delete the chat and all its messages
+      return await this.deleteChatAndMessages(chat.id)
+    } catch (error) {
+      console.error('Error deleting chat by task ID:', error)
+      return false
+    }
   }
 }

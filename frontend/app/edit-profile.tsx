@@ -196,12 +196,10 @@ export default function EditProfile() {
           <ImageUpload
             onImageUploaded={(url: string) => {
               // Handle image upload
-              console.log('Uploaded image:', url)
               // In a real app, you would save this URL to the profile
             }}
             onImageRemoved={() => {
               // Handle image removal
-              console.log('Image removed')
             }}
             currentImage={user?.profile?.avatar_url || undefined}
             placeholder="Add Profile Photo"

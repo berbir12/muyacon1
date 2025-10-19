@@ -22,7 +22,7 @@ export interface TaskApplication {
 
 export class TaskApplicationService {
   // Create a new application
-  static async createApplication(applicationData: Omit<TaskApplication, 'id' | 'created_at' | 'updated_at' | 'tasker_name' | 'tasker_avatar' | 'task_title' | 'customer_name'>): Promise<TaskApplication | null> {
+  static async createApplication(applicationData: Omit<TaskApplication, 'id' | 'created_at' | 'updated_at' | 'tasker_name' | 'tasker_avatar' | 'task_title' | 'customer_name'> & { user_id: string }): Promise<TaskApplication | null> {
     try {
       // Add user_id field to match the database schema
       // user_id should reference auth.users.id, not profiles.id
@@ -67,7 +67,6 @@ export class TaskApplicationService {
       // Send notification to customer
       await SimpleNotificationService.notifyTaskApplication(
         data.task_id, 
-        data.tasker_id, 
         application.tasker_name || 'Tasker', 
         application.task_title || 'Task'
       )
@@ -315,7 +314,6 @@ export class TaskApplicationService {
 
       // Send notification to tasker
       await SimpleNotificationService.notifyTaskAccepted(
-        application.tasker_id,
         customer?.full_name || 'Customer',
         task?.title || 'Task',
         application.task_id
@@ -405,7 +403,6 @@ export class TaskApplicationService {
 
         // Send notification to tasker
         await SimpleNotificationService.notifyTaskRejected(
-          application.tasker_id,
           customer?.full_name || 'Customer',
           task?.title || 'Task',
           application.task_id
@@ -543,7 +540,6 @@ export class TaskApplicationService {
         .single()
 
       await SimpleNotificationService.notifyTaskAccepted(
-        taskerId,
         customer?.full_name || 'Customer',
         task.title,
         taskId
@@ -580,7 +576,6 @@ export class TaskApplicationService {
         .single()
 
       await SimpleNotificationService.notifyTaskRejected(
-        application.tasker_id,
         customer?.full_name || 'Customer',
         task.title,
         application.task_id

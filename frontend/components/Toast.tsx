@@ -101,8 +101,8 @@ export default function Toast({
       case 'info':
       default:
         return {
-          backgroundColor: Colors.info[500],
-          borderLeftColor: Colors.info[600],
+          backgroundColor: Colors.primary[500],
+          borderLeftColor: Colors.primary[600],
         }
     }
   }

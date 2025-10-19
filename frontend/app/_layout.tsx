@@ -210,6 +210,20 @@ function TabNavigator() {
           href: null, // Hide from tab bar
         }}
       />
+      
+      <Tabs.Screen
+        name="terms-of-service"
+        options={{
+          href: null, // Hide from tab bar
+        }}
+      />
+      
+      <Tabs.Screen
+        name="privacy-policy"
+        options={{
+          href: null, // Hide from tab bar
+        }}
+      />
     </Tabs>
   )
 }

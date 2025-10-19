@@ -13,8 +13,8 @@ export class ImageService {
   // Request camera permissions
   static async requestCameraPermissions(): Promise<boolean> {
     try {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync()
-    return status === 'granted'
+      const { status } = await ImagePicker.requestCameraPermissionsAsync()
+      return status === 'granted'
     } catch (error) {
       console.error('Error requesting camera permissions:', error)
       return false
@@ -24,8 +24,8 @@ export class ImageService {
   // Request media library permissions
   static async requestMediaLibraryPermissions(): Promise<boolean> {
     try {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
-    return status === 'granted'
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+      return status === 'granted'
     } catch (error) {
       console.error('Error requesting media library permissions:', error)
       return false
@@ -46,7 +46,7 @@ export class ImageService {
       }
 
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaType.Images,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: options?.allowsEditing ?? true,
         aspect: options?.aspect ?? [4, 3],
         quality: options?.quality ?? 0.8,
@@ -79,7 +79,7 @@ export class ImageService {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaType.Images,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: options?.allowsMultipleSelection ? false : (options?.allowsEditing ?? true),
         aspect: options?.aspect ?? [4, 3],
         quality: options?.quality ?? 0.8,

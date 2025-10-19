@@ -102,7 +102,6 @@ export default function ChatDetail() {
     try {
       await ChatService.subscribeToChat(chat.id, {
         onMessage: (message) => {
-          console.log('Real-time message received:', message)
           setMessages(prev => [...prev, {
             id: message.id,
             message: message.message,
@@ -155,14 +154,11 @@ export default function ChatDetail() {
   const loadParticipantName = async (chatData: Chat) => {
     if (!user?.id || !chatData) return
 
-    console.log('Loading participant name for chat:', chatData)
-    console.log('User ID:', user.id, 'Customer ID:', chatData.customer_id, 'Tasker ID:', chatData.tasker_id)
 
     try {
       // Use the names from chatData if available
       if (chatData.customer_name && chatData.tasker_name) {
         const otherName = user.id === chatData.customer_id ? chatData.tasker_name : chatData.customer_name
-        console.log('Using chatData names - otherName:', otherName)
         if (otherName && otherName !== 'Unknown') {
           setParticipantName(otherName)
           return
@@ -217,7 +213,6 @@ export default function ChatDetail() {
       }
       
       setChat(chatData)
-      console.log('Chat data loaded:', chatData)
 
       // Load participant name
       await loadParticipantName(chatData)
@@ -230,7 +225,6 @@ export default function ChatDetail() {
 
       // Set up real-time subscription after chat is loaded
       if (chatData.id && user?.id) {
-        console.log('Setting up real-time subscription for chat:', chatData.id)
         await subscribeToRealtimeChat()
       }
 

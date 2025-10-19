@@ -8,7 +8,6 @@ import {
   SafeAreaView,
   ActivityIndicator,
   Alert,
-  RefreshControl,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
@@ -50,7 +49,6 @@ export default function Bookings() {
   const [selectedStatus, setSelectedStatus] = useState('all')
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -86,18 +84,11 @@ export default function Bookings() {
     if (!user) return
     
     if (isRefresh) {
-      setRefreshing(true)
     } else {
       setLoading(true)
     }
     
     try {
-      console.log('🚀 BOOKINGS PAGE - User object:', {
-        id: user.id,
-        user_id: user.user_id,
-        full_name: user.full_name,
-        role: user.role
-      })
       const fetchedBookings = await BookingService.getUserBookings(user.user_id)
       setBookings(fetchedBookings)
     } catch (error) {
@@ -105,15 +96,10 @@ export default function Bookings() {
       Alert.alert('Error', 'Failed to load bookings')
     } finally {
       if (isRefresh) {
-        setRefreshing(false)
       } else {
         setLoading(false)
       }
     }
-  }
-
-  const onRefresh = () => {
-    loadBookings(true)
   }
 
   const filteredBookings = selectedStatus === 'all' 
@@ -122,10 +108,8 @@ export default function Bookings() {
 
   const updateBookingStatus = async (bookingId: string, newStatus: Booking['status']) => {
     try {
-      console.log('Bookings: Updating booking status', { bookingId, newStatus, userId: user?.id })
       setLoading(true)
       const success = await BookingService.updateBookingAndTaskStatus(bookingId, newStatus, user?.id)
-      console.log('Bookings: Update result', { success })
       if (success) {
         Alert.alert('Success', 'Booking status updated successfully!')
         await loadBookings() // Reload to get updated data
@@ -140,17 +124,11 @@ export default function Bookings() {
     }
   }
 
+
   const handleChatPress = async (booking: Booking) => {
     if (!user?.id) return
 
     try {
-      console.log('🚀 BOOKINGS - Starting chat for booking:', {
-        bookingId: booking.id,
-        customerId: booking.customer_id,
-        technicianId: booking.technician_id,
-        userMode: user.current_mode
-      })
-
       // Get or create chat for this booking
       const chatId = await BookingService.getOrCreateChatForBooking(
         booking.id,
@@ -158,14 +136,10 @@ export default function Bookings() {
         booking.technician_id
       )
 
-      console.log('🚀 BOOKINGS - Chat ID result:', chatId)
-
       if (chatId) {
         // Navigate to chat with the chat ID
-        console.log('🚀 BOOKINGS - Navigating to chat:', `/chat-detail?chatId=${chatId}&bookingId=${booking.id}`)
         router.push(`/chat-detail?chatId=${chatId}&bookingId=${booking.id}`)
       } else {
-        console.log('🚀 BOOKINGS - No chat ID returned')
         Alert.alert('Error', 'Failed to create chat')
       }
     } catch (error) {
@@ -242,14 +216,6 @@ export default function Bookings() {
         contentContainerStyle={styles.scrollContent}
         bounces={true}
         scrollEventThrottle={16}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[Colors.primary[500]]}
-            tintColor={Colors.primary[500]}
-          />
-        }
       >
         {loading ? (
           <View style={styles.loadingContainer}>
@@ -260,13 +226,13 @@ export default function Bookings() {
           filteredBookings.map((booking) => (
             <View key={booking.id} style={styles.bookingCard}>
               {/* Booking Header */}
-        <View style={styles.bookingHeader}>
+              <View style={styles.bookingHeader}>
                 <View style={styles.bookingInfo}>
                   <Text style={styles.bookingTitle}>{booking.task_title || booking.service_name}</Text>
                   <Text style={styles.bookingCustomer}>
                     {user?.current_mode === 'customer' ? `Tasker: ${booking.technician_name}` : `Customer: ${booking.customer_name}`}
-            </Text>
-          </View>
+                  </Text>
+                </View>
                 <View style={styles.statusContainer}>
                   <View style={[styles.statusBadge, { backgroundColor: statusColors[booking.status] + '20' }]}>
                     <Text style={[styles.statusText, { color: statusColors[booking.status] }]}>
@@ -281,39 +247,39 @@ export default function Bookings() {
                     </View>
                   )}
                 </View>
-        </View>
+              </View>
 
               {/* Booking Description */}
               <Text style={styles.bookingDescription}>{booking.service_description}</Text>
               
               {/* Booking Details */}
-        <View style={styles.bookingDetails}>
-          <View style={styles.detailRow}>
+              <View style={styles.bookingDetails}>
+                <View style={styles.detailRow}>
                   <View style={styles.detailItem}>
                     <Ionicons name="calendar-outline" size={18} color={Colors.neutral[500]} />
                     <Text style={styles.detailText}>{formatDate(booking.booking_date)} at {formatTime(booking.start_time)}</Text>
-          </View>
-            </View>
-          <View style={styles.detailRow}>
+                  </View>
+                </View>
+                <View style={styles.detailRow}>
                   <View style={styles.detailItem}>
                     <Ionicons name="location-outline" size={18} color={Colors.neutral[500]} />
                     <Text style={styles.detailText}>{booking.address}</Text>
-          </View>
-          </View>
-            <View style={styles.detailRow}>
+                  </View>
+                </View>
+                <View style={styles.detailRow}>
                   <View style={styles.detailItem}>
                     <Ionicons name="cash-outline" size={18} color={Colors.neutral[500]} />
                     <Text style={styles.detailText}>${booking.agreed_price}</Text>
-            </View>
+                  </View>
                   <View style={styles.detailItem}>
                     <Ionicons name="pricetag-outline" size={18} color={Colors.neutral[500]} />
                     <Text style={styles.detailText}>{booking.service_name}</Text>
-            </View>
-            </View>
-        </View>
+                  </View>
+                </View>
+              </View>
 
-        {/* Action Buttons */}
-          <View style={styles.actionButtons}>
+              {/* Action Buttons */}
+              <View style={styles.actionButtons}>
                 {/* Chat Button - Always available for confirmed bookings */}
                 {(booking.status === 'confirmed' || booking.status === 'in_progress') && (
                   <TouchableOpacity
@@ -405,17 +371,17 @@ export default function Bookings() {
                   <View style={styles.completedBadge}>
                     <Ionicons name="checkmark-circle" size={18} color={Colors.success[500]} />
                     <Text style={styles.completedText}>Task Completed</Text>
-          </View>
-        )}
+                  </View>
+                )}
 
                 {booking.status === 'cancelled' && (
                   <View style={styles.cancelledBadge}>
                     <Ionicons name="close-circle" size={18} color={Colors.error[500]} />
                     <Text style={styles.cancelledText}>Task Cancelled</Text>
-          </View>
-        )}
-      </View>
-        </View>
+                  </View>
+                )}
+              </View>
+            </View>
           ))
         )}
         
@@ -432,6 +398,7 @@ export default function Bookings() {
           </View>
         )}
       </ScrollView>
+
     </SafeAreaView>
   )
 }

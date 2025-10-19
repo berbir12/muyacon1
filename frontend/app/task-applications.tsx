@@ -267,7 +267,7 @@ export default function TaskApplications() {
               <Ionicons name="close" size={24} color={Colors.neutral[600]} />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Tasker Profile</Text>
-            <View style={styles.placeholder} />
+            <View style={styles.modalPlaceholder} />
           </View>
 
           <ScrollView style={styles.modalContent}>
@@ -287,7 +287,7 @@ export default function TaskApplications() {
                         style={styles.avatarImage}
                       />
                     ) : (
-                      <Text style={styles.avatarText}>
+                      <Text style={styles.profileAvatarText}>
                         {selectedTaskerProfile.full_name?.charAt(0)?.toUpperCase() || 'T'}
                       </Text>
                     )}
@@ -595,7 +595,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.neutral[900],
   },
-  placeholder: {
+  modalPlaceholder: {
     width: 32,
   },
   modalContent: {
@@ -630,7 +630,7 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 40,
   },
-  avatarText: {
+  profileAvatarText: {
     fontSize: 32,
     fontWeight: '600',
     color: Colors.primary[600],
