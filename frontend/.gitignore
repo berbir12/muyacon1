@@ -37,4 +37,12 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
+# Documentation files
+docs/
+*.md
+README.md
+
+# Database migration files
+database/
+
 app-example

@@ -126,8 +126,9 @@ export default function PrivacyPolicy() {
           <Text style={styles.sectionText}>
             If you have any questions about this privacy policy or our data practices, please contact us at:{'\n'}
             Email: privacy@muyacon.com{'\n'}
-            Phone: +251-XXX-XXXX{'\n'}
-            Address: [Your Business Address]
+            Phone: +251-911-234-567{'\n'}
+            Address: Addis Ababa, Ethiopia{'\n'}
+            Website: https://muyacon.com
           </Text>
         </View>
       </ScrollView>

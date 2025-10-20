@@ -109,8 +109,10 @@ export default function Profile() {
     // Check if user is already a tasker
     if (user.role === 'tasker' || user.role === 'both') {
       try {
+        const currentMode = user.current_mode
+        const newMode = currentMode === 'customer' ? 'tasker' : 'customer'
         await switchMode()
-        Alert.alert('Success', `Switched to ${user.current_mode === 'customer' ? 'tasker' : 'customer'} mode!`)
+        Alert.alert('Success', `Switched to ${newMode} mode!`)
       } catch (error) {
         Alert.alert('Error', 'Failed to switch mode. Please try again.')
       }

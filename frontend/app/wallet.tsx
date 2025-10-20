@@ -146,8 +146,12 @@ export default function WalletScreen() {
           <Ionicons name="arrow-back" size={24} color={Colors.neutral[700]} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Wallet</Text>
-        <TouchableOpacity onPress={() => setShowPaymentMethodModal(true)}>
-          <Ionicons name="add-outline" size={24} color={Colors.primary[500]} />
+        <TouchableOpacity 
+          style={styles.addButton}
+          onPress={() => setShowPaymentMethodModal(true)}
+        >
+          <Ionicons name="add-outline" size={20} color={Colors.primary[500]} />
+          <Text style={styles.addButtonText}>Add Method</Text>
         </TouchableOpacity>
       </View>
 
@@ -156,7 +160,7 @@ export default function WalletScreen() {
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={() => setRefreshing(false)}
+            onRefresh={handleRefresh}
             colors={[Colors.primary[500]]}
             tintColor={Colors.primary[500]}
           />
@@ -201,10 +205,9 @@ export default function WalletScreen() {
           <TouchableOpacity 
             style={[styles.actionButton, styles.withdrawButton]}
             onPress={() => setShowWithdrawalModal(true)}
-            disabled={(wallet?.balance || 0) <= 0}
           >
             <Ionicons name="arrow-up" size={20} color="#fff" />
-            <Text style={styles.actionButtonText}>Withdraw</Text>
+            <Text style={styles.actionButtonText}>Withdraw Funds</Text>
           </TouchableOpacity>
           <TouchableOpacity 
             style={[styles.actionButton, styles.historyButton]}
@@ -213,6 +216,70 @@ export default function WalletScreen() {
             <Ionicons name="time" size={20} color={Colors.primary[500]} />
             <Text style={[styles.actionButtonText, styles.historyButtonText]}>History</Text>
           </TouchableOpacity>
+        </View>
+
+        {/* Payment Methods Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Payment Methods</Text>
+            <TouchableOpacity onPress={() => setShowPaymentMethodModal(true)}>
+              <Text style={styles.viewAllText}>+ Add</Text>
+            </TouchableOpacity>
+          </View>
+
+          {paymentMethods.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="card-outline" size={48} color={Colors.neutral[300]} />
+              <Text style={styles.emptyTitle}>No Payment Methods</Text>
+              <Text style={styles.emptySubtitle}>
+                Add a payment method to withdraw your earnings
+              </Text>
+              <TouchableOpacity
+                style={styles.addMethodButton}
+                onPress={() => setShowPaymentMethodModal(true)}
+              >
+                <Text style={styles.addMethodButtonText}>Add Payment Method</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.paymentMethodsList}>
+              {paymentMethods.slice(0, 3).map((method) => (
+                <View key={method.id} style={styles.paymentMethodItem}>
+                  <View style={styles.paymentMethodIcon}>
+                    <Ionicons
+                      name={
+                        method.type === 'bank_account' ? 'card-outline' :
+                        method.type === 'mobile_money' ? 'phone-portrait-outline' :
+                        'location-outline'
+                      }
+                      size={20}
+                      color={Colors.primary[500]}
+                    />
+                  </View>
+                  <View style={styles.paymentMethodInfo}>
+                    <Text style={styles.paymentMethodName}>{method.display_name}</Text>
+                    <Text style={styles.paymentMethodType}>
+                      {method.type === 'bank_account' ? 'Bank Account' :
+                       method.type === 'mobile_money' ? 'Mobile Money' :
+                       'Cash Pickup'}
+                    </Text>
+                  </View>
+                  {method.is_default && (
+                    <View style={styles.defaultBadge}>
+                      <Text style={styles.defaultText}>Default</Text>
+                    </View>
+                  )}
+                </View>
+              ))}
+              {paymentMethods.length > 3 && (
+                <TouchableOpacity style={styles.viewAllMethods}>
+                  <Text style={styles.viewAllMethodsText}>
+                    View All ({paymentMethods.length})
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
         </View>
 
         {/* Recent Transactions */}
@@ -250,6 +317,7 @@ export default function WalletScreen() {
         currentBalance={wallet?.balance || 0}
         userId={user?.user_id || ''}
       />
+
     </SafeAreaView>
   )
 }
@@ -275,6 +343,20 @@ const styles = StyleSheet.create({
   },
   headerRight: {
     width: 24,
+  },
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primary[50],
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 4,
+  },
+  addButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.primary[500],
   },
   content: {
     flex: 1,
@@ -462,5 +544,72 @@ const styles = StyleSheet.create({
     color: Colors.neutral[500],
     textAlign: 'center',
     lineHeight: 20,
+  },
+  addMethodButton: {
+    backgroundColor: Colors.primary[500],
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  addMethodButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  paymentMethodsList: {
+    gap: 12,
+  },
+  paymentMethodItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: Colors.background.primary,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
+  },
+  paymentMethodIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.primary[50],
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  paymentMethodInfo: {
+    flex: 1,
+  },
+  paymentMethodName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.neutral[700],
+    marginBottom: 2,
+  },
+  paymentMethodType: {
+    fontSize: 12,
+    color: Colors.neutral[500],
+  },
+  defaultBadge: {
+    backgroundColor: Colors.success[100],
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  defaultText: {
+    fontSize: 10,
+    color: Colors.success[600],
+    fontWeight: '500',
+  },
+  viewAllMethods: {
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  viewAllMethodsText: {
+    fontSize: 14,
+    color: Colors.primary[500],
+    fontWeight: '500',
   },
 })

@@ -197,6 +197,13 @@ export default function Settings() {
       title: 'Support',
       items: [
         {
+          icon: 'help-circle-outline',
+          title: 'Help & FAQ',
+          subtitle: 'Find answers to common questions',
+          onPress: () => router.push('/help'),
+          showArrow: true
+        },
+        {
           icon: 'chatbubble-outline',
           title: 'Contact Us',
           subtitle: 'Get in touch with our team',

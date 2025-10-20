@@ -13,7 +13,10 @@ import {
   Alert,
   Dimensions,
   StatusBar,
+  Image,
 } from 'react-native'
+import * as ImagePicker from 'expo-image-picker'
+import * as DocumentPicker from 'expo-document-picker'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter, useLocalSearchParams } from 'expo-router'
 import { useAuth } from '../contexts/SimpleAuthContext'
@@ -339,6 +342,137 @@ export default function ChatDetail() {
     }, 100)
   }
 
+  const handleFileUpload = async () => {
+    Alert.alert(
+      'Upload File',
+      'Choose what you want to upload',
+      [
+        {
+          text: 'Camera',
+          onPress: () => openCamera(),
+        },
+        {
+          text: 'Photo Library',
+          onPress: () => openImageLibrary(),
+        },
+        {
+          text: 'Documents',
+          onPress: () => openDocumentPicker(),
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ]
+    )
+  }
+
+  const openCamera = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestCameraPermissionsAsync()
+      
+      if (permissionResult.granted === false) {
+        Alert.alert('Permission Required', 'Camera permission is required to take photos')
+        return
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      })
+
+      if (!result.canceled && result.assets[0]) {
+        await sendFileMessage(result.assets[0].uri, 'image')
+      }
+    } catch (error) {
+      console.error('Error taking photo:', error)
+      Alert.alert('Error', 'Failed to take photo')
+    }
+  }
+
+  const openImageLibrary = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync()
+      
+      if (permissionResult.granted === false) {
+        Alert.alert('Permission Required', 'Photo library permission is required')
+        return
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      })
+
+      if (!result.canceled && result.assets[0]) {
+        await sendFileMessage(result.assets[0].uri, 'image')
+      }
+    } catch (error) {
+      console.error('Error picking image:', error)
+      Alert.alert('Error', 'Failed to pick image')
+    }
+  }
+
+  const openDocumentPicker = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
+      })
+
+      if (!result.canceled && result.assets[0]) {
+        await sendFileMessage(result.assets[0].uri, 'document')
+      }
+    } catch (error) {
+      console.error('Error picking document:', error)
+      Alert.alert('Error', 'Failed to pick document')
+    }
+  }
+
+  const sendFileMessage = async (fileUri: string, fileType: 'image' | 'document') => {
+    if (!user?.id || sending) return
+
+    try {
+      setSending(true)
+      
+      // For now, we'll send the file URI as a text message
+      // In a real app, you'd upload the file to a storage service first
+      const fileMessage = fileType === 'image' 
+        ? `📷 Image: ${fileUri}` 
+        : `📄 Document: ${fileUri}`
+      
+      let success = false
+      
+      if (chatId) {
+        const result = await ChatService.sendMessage(chatId, user.id, fileMessage)
+        success = result !== null
+      } else if (chat?.id) {
+        success = await ChatService.sendMessageToChat(chat.id, fileMessage, user.id)
+      }
+      
+      if (success) {
+        // Reload messages to show the new file message
+        setTimeout(async () => {
+          const messagesData = chatId
+            ? await ChatService.getChatMessagesByChatId(chatId)
+            : await ChatService.getChatMessages(chat?.id || '')
+          setMessages(messagesData)
+        }, 500)
+      } else {
+        Alert.alert('Error', 'Failed to send file')
+      }
+    } catch (error) {
+      console.error('Error sending file:', error)
+      Alert.alert('Error', 'Failed to send file')
+    } finally {
+      setSending(false)
+    }
+  }
+
   const formatTime = (dateString: string) => {
     const date = new Date(dateString)
     return date.toLocaleTimeString('en-US', { 
@@ -543,8 +677,11 @@ export default function ChatDetail() {
         {/* Modern Input Area */}
         <View style={styles.inputArea}>
           <View style={styles.inputContainer}>
-            <TouchableOpacity style={styles.inputActionButton}>
-              <Ionicons name="add" size={24} color={Colors.primary[500]} />
+            <TouchableOpacity 
+              style={styles.inputActionButton}
+              onPress={handleFileUpload}
+            >
+              <Ionicons name="attach" size={24} color={Colors.primary[500]} />
             </TouchableOpacity>
             
             <View style={styles.messageInputContainer}>
@@ -579,8 +716,8 @@ export default function ChatDetail() {
                 )}
               </TouchableOpacity>
             ) : (
-              <TouchableOpacity style={styles.voiceButton}>
-                <Ionicons name="mic" size={24} color={Colors.primary[500]} />
+              <TouchableOpacity style={styles.uploadButton}>
+                <Ionicons name="image" size={24} color={Colors.primary[500]} />
               </TouchableOpacity>
             )}
           </View>
@@ -916,7 +1053,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  voiceButton: {
+  uploadButton: {
     padding: 8,
   },
 })

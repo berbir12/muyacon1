@@ -143,21 +143,23 @@ export class PaymentMethodService {
 
   // Helper function to get display name
   private static getDisplayName(method: any): string {
+    const withdrawalDetails = this.getWithdrawalDetails(method)
+    
     switch (method.type) {
       case 'bank_account':
-        const bank = getBankById(method.withdrawal_details?.bank_id)
-        const bankName = bank?.name || method.withdrawal_details?.bank_name || 'Bank'
-        const accountNumber = method.withdrawal_details?.account_number || method.last4
+        const bank = getBankById(withdrawalDetails?.bank_id)
+        const bankName = bank?.name || withdrawalDetails?.bank_name || method.brand || 'Bank'
+        const accountNumber = withdrawalDetails?.account_number || method.last4
         const maskedAccount = accountNumber ? `••••${accountNumber.slice(-4)}` : '••••'
         return `${bankName} ${maskedAccount}`
       case 'mobile_money':
-        const provider = getMobileMoneyProviderById(method.withdrawal_details?.provider_id)
-        const providerName = provider?.name || method.withdrawal_details?.provider || 'Mobile Money'
-        const phoneNumber = method.withdrawal_details?.phone_number
+        const provider = getMobileMoneyProviderById(withdrawalDetails?.provider_id)
+        const providerName = provider?.name || withdrawalDetails?.provider || method.brand || 'Mobile Money'
+        const phoneNumber = withdrawalDetails?.phone_number
         const maskedPhone = phoneNumber ? `••••${phoneNumber.slice(-4)}` : '••••'
         return `${providerName} ${maskedPhone}`
       case 'cash_pickup':
-        const location = method.withdrawal_details?.pickup_location || 'Location'
+        const location = withdrawalDetails?.pickup_location || 'Location'
         return `Cash Pickup - ${location}`
       default:
         return 'Unknown Method'
@@ -166,15 +168,17 @@ export class PaymentMethodService {
 
   // Helper function to get masked number
   private static getMaskedNumber(method: any): string {
+    const withdrawalDetails = this.getWithdrawalDetails(method)
+    
     switch (method.type) {
       case 'bank_account':
-        const accountNumber = method.withdrawal_details?.account_number
+        const accountNumber = withdrawalDetails?.account_number
         if (accountNumber) {
           return `••••${accountNumber.slice(-4)}`
         }
         return '•••• ••••'
       case 'mobile_money':
-        const phoneNumber = method.withdrawal_details?.phone_number
+        const phoneNumber = withdrawalDetails?.phone_number
         if (phoneNumber) {
           return `••••${phoneNumber.slice(-4)}`
         }

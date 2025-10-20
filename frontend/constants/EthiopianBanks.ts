@@ -20,7 +20,7 @@ export interface MobileMoneyProvider {
   description?: string
 }
 
-// Major Ethiopian Banks
+// Ethiopian Banks - Complete List
 export const ETHIOPIAN_BANKS: EthiopianBank[] = [
   {
     id: 'cbe',
@@ -32,87 +32,6 @@ export const ETHIOPIAN_BANKS: EthiopianBank[] = [
     description: 'The largest bank in Ethiopia'
   },
   {
-    id: 'awash',
-    name: 'Awash Bank',
-    code: 'AWASH',
-    isActive: true,
-    accountNumberLength: 12,
-    accountNumberFormat: 'XXXX-XXXX-XXXX',
-    description: 'One of the leading private banks'
-  },
-  {
-    id: 'dashen',
-    name: 'Dashen Bank',
-    code: 'DASHEN',
-    isActive: true,
-    accountNumberLength: 12,
-    accountNumberFormat: 'XXXX-XXXX-XXXX',
-    description: 'Leading private commercial bank'
-  },
-  {
-    id: 'abyssinia',
-    name: 'Bank of Abyssinia',
-    code: 'BOA',
-    isActive: true,
-    accountNumberLength: 12,
-    accountNumberFormat: 'XXXX-XXXX-XXXX',
-    description: 'Private commercial bank'
-  },
-  {
-    id: 'nib',
-    name: 'Nib International Bank',
-    code: 'NIB',
-    isActive: true,
-    accountNumberLength: 12,
-    accountNumberFormat: 'XXXX-XXXX-XXXX',
-    description: 'Private commercial bank'
-  },
-  {
-    id: 'coop',
-    name: 'Cooperative Bank of Oromia',
-    code: 'CBO',
-    isActive: true,
-    accountNumberLength: 12,
-    accountNumberFormat: 'XXXX-XXXX-XXXX',
-    description: 'Regional cooperative bank'
-  },
-  {
-    id: 'wegagen',
-    name: 'Wegagen Bank',
-    code: 'WEGAGEN',
-    isActive: true,
-    accountNumberLength: 12,
-    accountNumberFormat: 'XXXX-XXXX-XXXX',
-    description: 'Private commercial bank'
-  },
-  {
-    id: 'zemen',
-    name: 'Zemen Bank',
-    code: 'ZEMEN',
-    isActive: true,
-    accountNumberLength: 12,
-    accountNumberFormat: 'XXXX-XXXX-XXXX',
-    description: 'Private commercial bank'
-  },
-  {
-    id: 'bunna',
-    name: 'Bunna International Bank',
-    code: 'BUNNA',
-    isActive: true,
-    accountNumberLength: 12,
-    accountNumberFormat: 'XXXX-XXXX-XXXX',
-    description: 'Private commercial bank'
-  },
-  {
-    id: 'berhan',
-    name: 'Berhan International Bank',
-    code: 'BERHAN',
-    isActive: true,
-    accountNumberLength: 12,
-    accountNumberFormat: 'XXXX-XXXX-XXXX',
-    description: 'Private commercial bank'
-  },
-  {
     id: 'abay',
     name: 'Abay Bank',
     code: 'ABAY',
@@ -122,9 +41,18 @@ export const ETHIOPIAN_BANKS: EthiopianBank[] = [
     description: 'Private commercial bank'
   },
   {
-    id: 'aduna',
-    name: 'Aduna Bank',
-    code: 'ADUNA',
+    id: 'addis_international',
+    name: 'Addis International Bank',
+    code: 'ADDIS_INT',
+    isActive: true,
+    accountNumberLength: 12,
+    accountNumberFormat: 'XXXX-XXXX-XXXX',
+    description: 'Private commercial bank'
+  },
+  {
+    id: 'ahadu',
+    name: 'Ahadu Bank',
+    code: 'AHADU',
     isActive: true,
     accountNumberLength: 12,
     accountNumberFormat: 'XXXX-XXXX-XXXX',
@@ -137,39 +65,165 @@ export const ETHIOPIAN_BANKS: EthiopianBank[] = [
     isActive: true,
     accountNumberLength: 12,
     accountNumberFormat: 'XXXX-XXXX-XXXX',
-    description: 'Regional commercial bank'
+    description: 'Private commercial bank'
   },
   {
-    id: 'oromia',
-    name: 'Oromia Bank',
-    code: 'OROMIA',
+    id: 'awash_international',
+    name: 'Awash International Bank',
+    code: 'AWASH_INT',
     isActive: true,
     accountNumberLength: 12,
     accountNumberFormat: 'XXXX-XXXX-XXXX',
-    description: 'Regional commercial bank'
+    description: 'Private commercial bank'
   },
   {
-    id: 'sidama',
-    name: 'Sidama Bank',
-    code: 'SIDAMA',
+    id: 'abyssinia',
+    name: 'Bank of Abyssinia',
+    code: 'ABYSSINIA',
     isActive: true,
     accountNumberLength: 12,
     accountNumberFormat: 'XXXX-XXXX-XXXX',
-    description: 'Regional commercial bank'
+    description: 'Private commercial bank'
   },
   {
-    id: 'tirunesh',
-    name: 'Tirunesh Beijing Hospital Bank',
-    code: 'TIRUNESH',
+    id: 'berhan',
+    name: 'Berhan Bank',
+    code: 'BERHAN',
     isActive: true,
     accountNumberLength: 12,
     accountNumberFormat: 'XXXX-XXXX-XXXX',
-    description: 'Specialized bank'
+    description: 'Private commercial bank'
   },
   {
-    id: 'habesha',
-    name: 'Habesha Bank',
-    code: 'HABESHA',
+    id: 'bunna_international',
+    name: 'Bunna International Bank',
+    code: 'BUNNA_INT',
+    isActive: true,
+    accountNumberLength: 12,
+    accountNumberFormat: 'XXXX-XXXX-XXXX',
+    description: 'Private commercial bank'
+  },
+  {
+    id: 'cooperative_oromia',
+    name: 'Cooperative Bank of Oromia',
+    code: 'COOP_OROMIA',
+    isActive: true,
+    accountNumberLength: 12,
+    accountNumberFormat: 'XXXX-XXXX-XXXX',
+    description: 'Cooperative bank'
+  },
+  {
+    id: 'dashen',
+    name: 'Dashen Bank',
+    code: 'DASHEN',
+    isActive: true,
+    accountNumberLength: 12,
+    accountNumberFormat: 'XXXX-XXXX-XXXX',
+    description: 'Private commercial bank'
+  },
+  {
+    id: 'debub_global',
+    name: 'Debub Global Bank',
+    code: 'DEBUB_GLOBAL',
+    isActive: true,
+    accountNumberLength: 12,
+    accountNumberFormat: 'XXXX-XXXX-XXXX',
+    description: 'Private commercial bank'
+  },
+  {
+    id: 'enat',
+    name: 'Enat Bank',
+    code: 'ENAT',
+    isActive: true,
+    accountNumberLength: 12,
+    accountNumberFormat: 'XXXX-XXXX-XXXX',
+    description: 'Women-focused bank'
+  },
+  {
+    id: 'gadaa',
+    name: 'Gadaa Bank',
+    code: 'GADAA',
+    isActive: true,
+    accountNumberLength: 12,
+    accountNumberFormat: 'XXXX-XXXX-XXXX',
+    description: 'Private commercial bank'
+  },
+  {
+    id: 'global_ethiopia',
+    name: 'Global Bank Ethiopia',
+    code: 'GLOBAL_ETH',
+    isActive: true,
+    accountNumberLength: 12,
+    accountNumberFormat: 'XXXX-XXXX-XXXX',
+    description: 'Private commercial bank'
+  },
+  {
+    id: 'goh_betoch',
+    name: 'Goh Betoch Bank',
+    code: 'GOH_BETOCH',
+    isActive: true,
+    accountNumberLength: 12,
+    accountNumberFormat: 'XXXX-XXXX-XXXX',
+    description: 'Private commercial bank'
+  },
+  {
+    id: 'hibret',
+    name: 'Hibret Bank',
+    code: 'HIBRET',
+    isActive: true,
+    accountNumberLength: 12,
+    accountNumberFormat: 'XXXX-XXXX-XXXX',
+    description: 'Private commercial bank'
+  },
+  {
+    id: 'hijra',
+    name: 'Hijra Bank',
+    code: 'HIJRA',
+    isActive: true,
+    accountNumberLength: 12,
+    accountNumberFormat: 'XXXX-XXXX-XXXX',
+    description: 'Private commercial bank'
+  },
+  {
+    id: 'lion_international',
+    name: 'Lion International Bank',
+    code: 'LION_INT',
+    isActive: true,
+    accountNumberLength: 12,
+    accountNumberFormat: 'XXXX-XXXX-XXXX',
+    description: 'Private commercial bank'
+  },
+  {
+    id: 'nib_international',
+    name: 'Nib International Bank',
+    code: 'NIB_INT',
+    isActive: true,
+    accountNumberLength: 12,
+    accountNumberFormat: 'XXXX-XXXX-XXXX',
+    description: 'Private commercial bank'
+  },
+  {
+    id: 'omo',
+    name: 'Omo Bank',
+    code: 'OMO',
+    isActive: true,
+    accountNumberLength: 12,
+    accountNumberFormat: 'XXXX-XXXX-XXXX',
+    description: 'Private commercial bank'
+  },
+  {
+    id: 'oromia_international',
+    name: 'Oromia International Bank',
+    code: 'OROMIA_INT',
+    isActive: true,
+    accountNumberLength: 12,
+    accountNumberFormat: 'XXXX-XXXX-XXXX',
+    description: 'Private commercial bank'
+  },
+  {
+    id: 'rammis',
+    name: 'Rammis Bank',
+    code: 'RAMMIS',
     isActive: true,
     accountNumberLength: 12,
     accountNumberFormat: 'XXXX-XXXX-XXXX',
@@ -185,13 +239,67 @@ export const ETHIOPIAN_BANKS: EthiopianBank[] = [
     description: 'Private commercial bank'
   },
   {
-    id: 'telebirr',
-    name: 'Telebirr Bank',
-    code: 'TELEBIRR',
+    id: 'sidama',
+    name: 'Sidama Bank',
+    code: 'SIDAMA',
     isActive: true,
-    accountNumberLength: 10,
-    accountNumberFormat: 'XXXX-XXXX-XX',
-    description: 'Digital bank by Ethio Telecom'
+    accountNumberLength: 12,
+    accountNumberFormat: 'XXXX-XXXX-XXXX',
+    description: 'Private commercial bank'
+  },
+  {
+    id: 'siinqee',
+    name: 'Siinqee Bank',
+    code: 'SIINQEE',
+    isActive: true,
+    accountNumberLength: 12,
+    accountNumberFormat: 'XXXX-XXXX-XXXX',
+    description: 'Private commercial bank'
+  },
+  {
+    id: 'tsehay',
+    name: 'Tsehay Bank',
+    code: 'TSEHAY',
+    isActive: true,
+    accountNumberLength: 12,
+    accountNumberFormat: 'XXXX-XXXX-XXXX',
+    description: 'Private commercial bank'
+  },
+  {
+    id: 'tsedey',
+    name: 'Tsedey Bank',
+    code: 'TSEDEY',
+    isActive: true,
+    accountNumberLength: 12,
+    accountNumberFormat: 'XXXX-XXXX-XXXX',
+    description: 'Private commercial bank'
+  },
+  {
+    id: 'wegagen',
+    name: 'Wegagen Bank',
+    code: 'WEGAGEN',
+    isActive: true,
+    accountNumberLength: 12,
+    accountNumberFormat: 'XXXX-XXXX-XXXX',
+    description: 'Private commercial bank'
+  },
+  {
+    id: 'zamzam',
+    name: 'ZamZam Bank',
+    code: 'ZAMZAM',
+    isActive: true,
+    accountNumberLength: 12,
+    accountNumberFormat: 'XXXX-XXXX-XXXX',
+    description: 'Private commercial bank'
+  },
+  {
+    id: 'zemen',
+    name: 'Zemen Bank',
+    code: 'ZEMEN',
+    isActive: true,
+    accountNumberLength: 12,
+    accountNumberFormat: 'XXXX-XXXX-XXXX',
+    description: 'Private commercial bank'
   }
 ]
 
@@ -214,15 +322,6 @@ export const MOBILE_MONEY_PROVIDERS: MobileMoneyProvider[] = [
     phoneNumberLength: 10,
     phoneNumberFormat: '09XX-XXX-XXXX',
     description: 'Safaricom mobile money service'
-  },
-  {
-    id: 'hellocash',
-    name: 'HelloCash',
-    code: 'HELLOCASH',
-    isActive: true,
-    phoneNumberLength: 10,
-    phoneNumberFormat: '09XX-XXX-XXXX',
-    description: 'Mobile money service'
   }
 ]
 

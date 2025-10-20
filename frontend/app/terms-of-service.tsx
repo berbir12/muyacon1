@@ -110,7 +110,9 @@ export default function TermsOfService() {
           <Text style={styles.sectionText}>
             If you have any questions about these Terms of Service, please contact us at:{'\n'}
             Email: support@muyacon.com{'\n'}
-            Phone: +251-XXX-XXXX
+            Phone: +251-911-234-567{'\n'}
+            Website: https://muyacon.com{'\n'}
+            Address: Addis Ababa, Ethiopia
           </Text>
         </View>
       </ScrollView>

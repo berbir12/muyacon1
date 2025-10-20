@@ -287,6 +287,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               if (!prev) return null;
               const updated = { ...prev, current_mode: newMode as "tasker" | "customer" };
               console.log('🚀 SWITCH MODE - Local state updated:', updated.current_mode);
+              console.log('🚀 SWITCH MODE - Full user object:', updated);
               return updated;
             });
       

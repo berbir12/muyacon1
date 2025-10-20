@@ -35,9 +35,9 @@ export class WithdrawalOrderService {
     withdrawalDetails: any
   ): Promise<WithdrawalOrder> {
     try {
-      // Calculate processing fee (example: 2% of amount, minimum 10 ETB)
-      const processingFee = Math.max(amount * 0.02, 10)
-      const netAmount = amount - processingFee
+      // No processing fee
+      const processingFee = 0
+      const netAmount = amount
 
       // Check if user has sufficient balance
       const { data: wallet, error: walletError } = await supabase

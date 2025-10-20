@@ -15,10 +15,14 @@ function TabNavigator() {
   const { unreadCount } = useNotifications()
   
   // Determine which tabs to show based on user role
-  const isTasker = user?.currentMode === 'tasker'
+  const isTasker = user?.current_mode === 'tasker'
+  
+  // Debug logging
+  console.log('TabNavigator render - isTasker:', isTasker, 'current_mode:', user?.current_mode)
   
   return (
     <Tabs
+      key={user?.current_mode} // Force re-render when mode changes
       screenOptions={{
         tabBarActiveTintColor: Colors.primary[500],
         tabBarInactiveTintColor: Colors.neutral[400],
@@ -234,6 +238,13 @@ function TabNavigator() {
       
       <Tabs.Screen
         name="wallet"
+        options={{
+          href: null, // Hide from tab bar
+        }}
+      />
+      
+      <Tabs.Screen
+        name="help"
         options={{
           href: null, // Hide from tab bar
         }}

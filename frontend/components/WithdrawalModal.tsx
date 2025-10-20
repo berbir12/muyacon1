@@ -14,6 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons'
 import { PaymentMethodService, PaymentMethod } from '../services/PaymentMethodService'
 import { WithdrawalOrderService } from '../services/WithdrawalOrderService'
+import PaymentMethodModal from './PaymentMethodModal'
 import Colors from '../constants/Colors'
 
 interface WithdrawalModalProps {
@@ -37,6 +38,7 @@ export default function WithdrawalModal({
   const [amount, setAmount] = useState('')
   const [showAddMethod, setShowAddMethod] = useState(false)
 
+
   useEffect(() => {
     if (visible) {
       loadPaymentMethods()
@@ -58,6 +60,12 @@ export default function WithdrawalModal({
     }
   }
 
+  const handlePaymentMethodAdded = (method: PaymentMethod) => {
+    setPaymentMethods(prev => [method, ...prev])
+    setSelectedMethod(method)
+    setShowAddMethod(false)
+  }
+
   const handleWithdraw = async () => {
     if (!selectedMethod) {
       Alert.alert('Error', 'Please select a payment method')
@@ -71,7 +79,16 @@ export default function WithdrawalModal({
     }
 
     if (withdrawAmount > currentBalance) {
-      Alert.alert('Error', 'Insufficient balance')
+      Alert.alert(
+        'Insufficient Funds', 
+        `You have ${currentBalance.toFixed(2)} ETB available. Please enter an amount less than or equal to your current balance.`,
+        [
+          {
+            text: 'OK',
+            style: 'default'
+          }
+        ]
+      )
       return
     }
 
@@ -132,8 +149,7 @@ export default function WithdrawalModal({
     }
   }
 
-  const processingFee = selectedMethod ? Math.max(parseFloat(amount) * 0.02, 10) : 0
-  const netAmount = parseFloat(amount) - processingFee
+  const netAmount = parseFloat(amount)
 
   return (
     <Modal
@@ -153,9 +169,16 @@ export default function WithdrawalModal({
 
         <ScrollView style={styles.content}>
           {/* Balance Display */}
-          <View style={styles.balanceCard}>
+          <View style={[styles.balanceCard, currentBalance <= 0 && styles.balanceCardWarning]}>
             <Text style={styles.balanceLabel}>Available Balance</Text>
-            <Text style={styles.balanceAmount}>{formatCurrency(currentBalance)}</Text>
+            <Text style={[styles.balanceAmount, currentBalance <= 0 && styles.balanceAmountWarning]}>
+              {formatCurrency(currentBalance)}
+            </Text>
+            {currentBalance <= 0 && (
+              <Text style={styles.balanceWarning}>
+                You need to earn money by completing tasks before you can withdraw funds.
+              </Text>
+            )}
           </View>
 
           {/* Amount Input */}
@@ -253,11 +276,7 @@ export default function WithdrawalModal({
                 </View>
                 <View style={styles.summaryRow}>
                   <Text style={styles.summaryLabel}>Method:</Text>
-                  <Text style={styles.summaryValue}>{method.display_name}</Text>
-                </View>
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Processing Fee:</Text>
-                  <Text style={styles.summaryValue}>{formatCurrency(processingFee)}</Text>
+                  <Text style={styles.summaryValue}>{selectedMethod.display_name}</Text>
                 </View>
                 <View style={[styles.summaryRow, styles.summaryTotal]}>
                   <Text style={styles.summaryTotalLabel}>You'll Receive:</Text>
@@ -283,12 +302,22 @@ export default function WithdrawalModal({
             ) : (
               <>
                 <Ionicons name="arrow-up" size={20} color="#fff" />
-                <Text style={styles.withdrawButtonText}>Request Withdrawal</Text>
+                <Text style={styles.withdrawButtonText}>
+                  {currentBalance <= 0 ? 'Try Withdrawal (No Balance)' : 'Request Withdrawal'}
+                </Text>
               </>
             )}
           </TouchableOpacity>
         </View>
       </SafeAreaView>
+
+      {/* Payment Method Modal */}
+      <PaymentMethodModal
+        visible={showAddMethod}
+        onClose={() => setShowAddMethod(false)}
+        onPaymentMethodAdded={handlePaymentMethodAdded}
+        userId={userId}
+      />
     </Modal>
   )
 }
@@ -339,6 +368,21 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     color: Colors.primary[600],
+  },
+  balanceCardWarning: {
+    backgroundColor: Colors.warning[50],
+    borderWidth: 1,
+    borderColor: Colors.warning[200],
+  },
+  balanceAmountWarning: {
+    color: Colors.warning[600],
+  },
+  balanceWarning: {
+    fontSize: 12,
+    color: Colors.warning[700],
+    marginTop: 8,
+    fontStyle: 'italic',
+    textAlign: 'center',
   },
   section: {
     backgroundColor: '#fff',
