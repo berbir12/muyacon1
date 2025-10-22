@@ -29,6 +29,7 @@ export default function Chats() {
   const [refreshing, setRefreshing] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [filteredChats, setFilteredChats] = useState<Chat[]>([])
+  const [clearedChats, setClearedChats] = useState<Set<string>>(new Set())
 
   useFocusEffect(
     React.useCallback(() => {
@@ -43,6 +44,18 @@ export default function Chats() {
       loadChats()
     }
   }, [isAuthenticated])
+
+  // Keep list fresh when returning from detail
+  useFocusEffect(
+    React.useCallback(() => {
+      if (isAuthenticated) {
+        loadChats()
+      }
+      return () => {
+        setClearedChats(new Set())
+      }
+    }, [isAuthenticated])
+  )
 
   useEffect(() => {
     if (searchQuery.trim()) {
@@ -81,6 +94,14 @@ export default function Chats() {
   }
 
   const handleChatSelect = (chatId: string) => {
+    // Optimistically clear unread badge for immediate feedback
+    setChats(prev => prev.map(c => c.id === chatId ? { ...c, unread_count: 0 } : c))
+    setFilteredChats(prev => prev.map(c => c.id === chatId ? { ...c, unread_count: 0 } : c))
+    setClearedChats(prev => new Set([...Array.from(prev), chatId]))
+    if (user?.id) {
+      // Mark as read in background
+      RealtimeChatService.markMessagesAsRead(chatId, user.id).catch(() => {})
+    }
     router.push(`/chat-detail?chatId=${chatId}`)
   }
 
@@ -127,7 +148,8 @@ export default function Chats() {
 
   const renderChat = ({ item }: { item: Chat }) => {
     const otherParticipant = getOtherParticipant(item)
-    const hasUnread = (item.unread_count || 0) > 0
+    const effectiveUnread = clearedChats.has(item.id) ? 0 : (item.unread_count || 0)
+    const hasUnread = effectiveUnread > 0
     const lastMessage = getLastMessagePreview(item)
 
     return (
@@ -170,7 +192,7 @@ export default function Chats() {
             {hasUnread && (
               <View style={styles.unreadCount}>
                 <Text style={styles.unreadCountText}>
-                  {item.unread_count}
+                  {effectiveUnread}
                 </Text>
               </View>
             )}

@@ -36,7 +36,7 @@ const faqCategories = [
     id: 'tasks',
     title: 'Tasks & Bookings',
     icon: 'list-outline',
-    color: Colors.info[500]
+    color: Colors.primary[500]
   },
   {
     id: 'safety',
@@ -205,7 +205,7 @@ export default function HelpScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity onPress={() => router.push('/settings')} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={Colors.neutral[900]} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Help & Support</Text>
@@ -250,7 +250,7 @@ export default function HelpScreen() {
                     <Ionicons
                       name={category.icon as any}
                       size={24}
-                      color={selectedCategory === category.id ? Colors.white : category.color}
+                      color={selectedCategory === category.id ? Colors.neutral[0] : category.color}
                     />
                   </View>
                   <Text style={[

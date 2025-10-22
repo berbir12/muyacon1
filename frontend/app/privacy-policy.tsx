@@ -18,7 +18,7 @@ export default function PrivacyPolicy() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity onPress={() => router.push('/settings')} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={Colors.neutral[900]} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Privacy Policy</Text>

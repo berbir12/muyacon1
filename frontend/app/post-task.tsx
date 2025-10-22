@@ -54,7 +54,6 @@ export default function PostTask() {
   const [price, setPrice] = useState('')
   const [location, setLocation] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('')
-  const [urgent, setUrgent] = useState(false)
   const [loading, setLoading] = useState(false)
   const [taskImages, setTaskImages] = useState<string[]>([])
   const [taskDate, setTaskDate] = useState(new Date())
@@ -215,7 +214,7 @@ export default function PostTask() {
         task_time: taskTime.toISOString().split('T')[1].slice(0, 8),
         estimated_hours: 2, // Default estimate
         task_size: 'medium' as const,
-        urgency: urgent ? 'urgent' as const : 'flexible' as const,
+        urgency: 'flexible' as const,
         status: 'open' as const,
         customer_id: profileId, // Use the actual profile ID
         user_id: user.user_id, // Use the auth.users.id for user_id field
@@ -224,7 +223,7 @@ export default function PostTask() {
         attachments: [],
         tags: [selectedCategory.toLowerCase()],
         is_featured: false,
-        is_urgent: urgent,
+        is_urgent: false,
         payment_status: 'pending' as const,
         special_instructions: '',
         photos: taskImages,
@@ -253,7 +252,6 @@ export default function PostTask() {
             setPrice('')
             setLocation('')
             setSelectedCategory('')
-            setUrgent(false)
             setTaskImages([])
             setTaskDate(new Date())
             const defaultTime = new Date()
@@ -285,7 +283,7 @@ export default function PostTask() {
             <View style={styles.header}>
               <TouchableOpacity 
                 style={styles.backButton}
-                onPress={() => router.back()}
+                onPress={() => router.push('/jobs')}
               >
                 <Ionicons name="arrow-back" size={24} color={Colors.neutral[900]} />
               </TouchableOpacity>
@@ -440,24 +438,6 @@ export default function PostTask() {
                 </View>
               </View>
 
-              {/* Urgent Toggle */}
-              <View style={styles.inputGroup}>
-                <TouchableOpacity
-                  style={styles.urgentToggle}
-                  onPress={() => setUrgent(!urgent)}
-                >
-                  <View style={[styles.toggle, urgent && styles.toggleActive]}>
-                    {urgent && <Ionicons name="checkmark" size={16} color="#fff" />}
-                  </View>
-                  <View style={styles.toggleContent}>
-                    <View style={styles.toggleHeader}>
-                      <Ionicons name="flash" size={20} color={urgent ? Colors.warning[500] : Colors.neutral[400]} />
-                      <Text style={styles.toggleTitle}>Mark as Urgent</Text>
-                    </View>
-                    <Text style={styles.toggleSubtitle}>This task needs immediate attention</Text>
-                  </View>
-                </TouchableOpacity>
-              </View>
 
               {/* Post Button */}
               <TouchableOpacity
@@ -758,48 +738,6 @@ const styles = StyleSheet.create({
   },
   categoryChipTextActive: {
     color: '#fff',
-  },
-  urgentToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.background.primary,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: Colors.border.primary,
-  },
-  toggle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: Colors.border.primary,
-    backgroundColor: Colors.background.secondary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  toggleActive: {
-    backgroundColor: Colors.warning[500],
-    borderColor: Colors.warning[500],
-  },
-  toggleContent: {
-    flex: 1,
-  },
-  toggleHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  toggleTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.neutral[900],
-    marginLeft: 8,
-  },
-  toggleSubtitle: {
-    fontSize: 14,
-    color: Colors.neutral[600],
   },
   postButton: {
     flexDirection: 'row',

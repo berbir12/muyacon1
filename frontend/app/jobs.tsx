@@ -646,26 +646,29 @@ export default function Jobs() {
               {/* Task Header */}
               <View style={styles.taskHeader}>
                 <View style={styles.taskTitleRow}>
-                  <Text style={styles.taskTitle}>{task.title}</Text>
-                  {task.is_urgent && (
-                    <View style={styles.urgentBadge}>
-                      <Text style={styles.urgentText}>URGENT</Text>
-        </View>
-      )}
+                  <Text style={styles.taskTitle} numberOfLines={1} ellipsizeMode="tail">
+                    {task.title}
+                  </Text>
                 </View>
-                <Text style={styles.taskPrice}>{task.budget} ETB</Text>
+                <View style={styles.priceContainer}>
+                  <Text style={styles.taskPrice}>{task.budget} ETB</Text>
+                </View>
               </View>
               
               {/* Task Description */}
-              <Text style={styles.taskDescription} numberOfLines={2}>
-                {task.description}
-            </Text>
+              <View style={styles.descriptionContainer}>
+                <Text style={styles.taskDescription} numberOfLines={3} ellipsizeMode="tail">
+                  {task.description}
+                </Text>
+              </View>
               
               {/* Task Meta */}
               <View style={styles.taskMeta}>
                 <View style={styles.metaItem}>
                   <Ionicons name="location-outline" size={16} color={Colors.neutral[500]} />
-                  <Text style={styles.metaText}>{task.address}</Text>
+                  <Text style={styles.metaText} numberOfLines={1} ellipsizeMode="tail">
+                    {task.address}
+                  </Text>
                 </View>
                 {task.task_date && (
                   <View style={styles.metaItem}>
@@ -688,16 +691,6 @@ export default function Jobs() {
                   <View style={styles.metaItem}>
                     <Ionicons name="refresh-outline" size={16} color={Colors.neutral[500]} />
                     <Text style={styles.metaText}>Flexible</Text>
-                  </View>
-                )}
-                <View style={styles.metaItem}>
-                  <Ionicons name="time-outline" size={16} color={Colors.neutral[500]} />
-                  <Text style={styles.metaText}>{formatTime(task.created_at)}</Text>
-                </View>
-                {activeTab === 'available' && (
-                  <View style={styles.metaItem}>
-                    <Ionicons name="person-outline" size={16} color={Colors.neutral[500]} />
-                    <Text style={styles.metaText}>{task.customer_name}</Text>
                   </View>
                 )}
             </View>
@@ -1034,17 +1027,17 @@ const styles = StyleSheet.create({
     color: Colors.neutral[600],
   },
   taskCard: {
-    backgroundColor: Colors.background.primary,
-    borderRadius: 16,
-    padding: 20,
-    marginVertical: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginVertical: 6,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: Colors.border.light,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    borderWidth: 0.5,
+    borderColor: Colors.neutral[200],
   },
   taskImageContainer: {
     position: 'relative',
@@ -1074,62 +1067,58 @@ const styles = StyleSheet.create({
   taskHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
+    alignItems: 'center',
+    marginBottom: 8,
   },
   taskTitleRow: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
     marginRight: 12,
   },
   taskTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     color: Colors.neutral[900],
-    flex: 1,
+    lineHeight: 20,
   },
-  urgentBadge: {
-    backgroundColor: Colors.error[500],
+  priceContainer: {
+    backgroundColor: Colors.success[500],
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
-    marginLeft: 8,
-  },
-  urgentText: {
-    fontSize: 10,
-    color: '#fff',
-    fontWeight: 'bold',
   },
   taskPrice: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: Colors.success[500],
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  descriptionContainer: {
+    marginBottom: 10,
   },
   taskDescription: {
-    fontSize: 15,
+    fontSize: 14,
     color: Colors.neutral[600],
-    marginBottom: 16,
-    lineHeight: 20,
+    lineHeight: 18,
   },
   taskMeta: {
     flexDirection: 'row',
-    marginBottom: 16,
-    gap: 20,
+    marginBottom: 10,
+    gap: 16,
   },
   metaItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   metaText: {
-    fontSize: 13,
+    fontSize: 12,
     color: Colors.neutral[500],
-    marginLeft: 6,
+    marginLeft: 4,
   },
   taskFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingTop: 8,
   },
   taskTags: {
     flex: 1,
@@ -1139,12 +1128,12 @@ const styles = StyleSheet.create({
   },
   categoryTag: {
     backgroundColor: Colors.primary[100],
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
   },
   categoryTagText: {
-    fontSize: 12,
+    fontSize: 11,
     color: Colors.primary[600],
     fontWeight: '600',
   },
@@ -1173,32 +1162,50 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     backgroundColor: Colors.primary[500],
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 5,
   },
   actionButtonText: {
     color: '#fff',
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: -0.1,
   },
   appliedButton: {
-    backgroundColor: Colors.neutral[300],
+    backgroundColor: Colors.neutral[200],
+    borderColor: Colors.neutral[300],
+    shadowOpacity: 0.1,
   },
   appliedButtonText: {
-    color: Colors.neutral[600],
+    color: Colors.neutral[500],
+    fontWeight: '600',
   },
   payButton: {
     backgroundColor: Colors.success[600],
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    shadowColor: Colors.success[600],
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: Colors.success[700],
   },
   rateButton: {
     backgroundColor: Colors.warning[500],
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    shadowColor: Colors.warning[500],
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: Colors.warning[600],
   },
   messageButton: {
     backgroundColor: Colors.primary[500],

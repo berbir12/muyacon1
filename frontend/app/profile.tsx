@@ -7,6 +7,7 @@ import {
   ScrollView,
   SafeAreaView,
   Alert,
+  Image,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
@@ -172,6 +173,9 @@ export default function Profile() {
       case 'edit-profile':
         router.push('/edit-profile')
         break
+      case 'portfolio':
+        router.push('/tasker-portfolio')
+        break
       case 'wallet':
         router.push('/wallet')
         break
@@ -203,6 +207,13 @@ export default function Profile() {
       icon: 'person-outline',
       color: Colors.primary[500],
     },
+    // Only show portfolio for taskers
+    ...(user?.current_mode === 'tasker' || (user?.role === 'tasker' && user?.current_mode !== 'customer') || user?.role === 'both' ? [{
+      id: 'portfolio',
+      title: 'My Portfolio',
+      icon: 'briefcase-outline',
+      color: Colors.primary[500],
+    }] : []),
     // Only show wallet for taskers (not customers)
     ...(user?.current_mode === 'tasker' || (user?.role === 'tasker' && user?.current_mode !== 'customer') || user?.role === 'both' ? [{
       id: 'wallet',
@@ -255,7 +266,14 @@ export default function Profile() {
         <View style={styles.profileCard}>
           <View style={styles.profileHeader}>
             <View style={styles.avatarContainer}>
-              <Ionicons name="person" size={32} color={Colors.primary[500]} />
+              {user?.avatar_url ? (
+                <Image
+                  source={{ uri: user.avatar_url }}
+                  style={styles.avatar}
+                />
+              ) : (
+                <Ionicons name="person" size={32} color={Colors.primary[500]} />
+              )}
             </View>
             <View style={styles.profileInfo}>
               <Text style={styles.profileName}>{user?.name || user?.username || 'Guest User'}</Text>
@@ -470,6 +488,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
+    overflow: 'hidden',
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
   },
   profileInfo: {
     flex: 1,

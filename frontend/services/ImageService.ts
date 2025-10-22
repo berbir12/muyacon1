@@ -161,51 +161,81 @@ export class ImageService {
     return await this.takePhoto(options)
   }
 
-  // Upload image to Supabase Storage
-  static async uploadImage(fileUri: string, folder: string = 'images'): Promise<{ success: boolean; url?: string; error?: string }> {
-    try {
-      // Create a unique filename
-      const timestamp = Date.now()
-      const randomId = Math.random().toString(36).substring(2, 15)
-      const fileExtension = fileUri.split('.').pop() || 'jpg'
-      const fileName = `${timestamp}_${randomId}.${fileExtension}`
-      const filePath = `${folder}/${fileName}`
+  // Upload image to Supabase Storage with retry logic
+  static async uploadImage(fileUri: string, folder: string = 'images', maxRetries: number = 3): Promise<{ success: boolean; url?: string; error?: string }> {
+    let lastError: any = null
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`🔄 Upload attempt ${attempt}/${maxRetries} for ${fileUri}`)
+        
+        // Create a unique filename
+        const timestamp = Date.now()
+        const randomId = Math.random().toString(36).substring(2, 15)
+        const fileExtension = fileUri.split('.').pop() || 'jpg'
+        const fileName = `${timestamp}_${randomId}.${fileExtension}`
+        const filePath = `${folder}/${fileName}`
 
-      // For Expo, we'll use a simple approach with fetch and FormData
-      const formData = new FormData()
-      formData.append('file', {
-        uri: fileUri,
-        type: 'image/jpeg',
-        name: fileName,
-      } as any)
+        // Use FormData for React Native compatibility
+        const formData = new FormData()
+        formData.append('file', {
+          uri: fileUri,
+          type: 'image/jpeg',
+          name: fileName,
+        } as any)
 
-      // Upload to Supabase Storage using the direct upload method
-      const { data, error } = await supabase.storage
-        .from('tasker-documents')
-        .upload(filePath, formData, {
-          contentType: 'image/jpeg',
-          upsert: false
+        // Upload to Supabase Storage with timeout
+        const uploadPromise = supabase.storage
+          .from('tasker-documents')
+          .upload(filePath, formData, {
+            contentType: 'image/jpeg',
+            upsert: false
+          })
+
+        // Add timeout to prevent hanging
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Upload timeout after 30 seconds')), 30000)
         })
 
-      if (error) {
-        throw error
-      }
+        const { data, error } = await Promise.race([uploadPromise, timeoutPromise]) as any
 
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from('tasker-documents')
-        .getPublicUrl(filePath)
+        if (error) {
+          throw error
+        }
 
-      return {
-        success: true,
-        url: urlData.publicUrl
+        // Get public URL
+        const { data: urlData } = supabase.storage
+          .from('tasker-documents')
+          .getPublicUrl(filePath)
+
+        console.log(`✅ Upload successful on attempt ${attempt}`)
+        return {
+          success: true,
+          url: urlData.publicUrl
+        }
+      } catch (error) {
+        lastError = error
+        console.error(`❌ Upload attempt ${attempt} failed:`, error)
+        
+        // If it's a network timeout error and we have retries left, wait before retrying
+        if (attempt < maxRetries && (
+          error?.message?.includes('timeout') || 
+          error?.message?.includes('Network request timed out') ||
+          error?.code === 'StorageUnknownError' ||
+          error?.message?.includes('Property') ||
+          error?.message?.includes('blob')
+        )) {
+          const waitTime = Math.pow(2, attempt) * 1000 // Exponential backoff
+          console.log(`⏳ Waiting ${waitTime}ms before retry...`)
+          await new Promise(resolve => setTimeout(resolve, waitTime))
+        }
       }
-    } catch (error) {
-      console.error('Error uploading image:', error)
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to upload image'
-      }
+    }
+
+    console.error('❌ All upload attempts failed')
+    return {
+      success: false,
+      error: lastError instanceof Error ? lastError.message : 'Failed to upload image after multiple attempts'
     }
   }
 

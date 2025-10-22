@@ -79,3 +79,11 @@ agenthub/agents/youtube/db
 # Mobile development
 android-sdk/ admin/
 admin/
+
+# Documentation files
+docs/
+*.md
+README.md
+
+# Database migration files
+database/

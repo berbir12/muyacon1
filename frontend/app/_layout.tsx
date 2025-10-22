@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react'
 import { View, Text } from 'react-native'
-import { Tabs } from 'expo-router'
+import { Tabs, usePathname } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { AuthProvider, useAuth } from '../contexts/SimpleAuthContext'
 import { LanguageProvider } from '../contexts/LanguageContext'
@@ -13,12 +13,40 @@ import * as SplashScreen from 'expo-splash-screen'
 function TabNavigator() {
   const { user, isAuthenticated } = useAuth()
   const { unreadCount } = useNotifications()
+  const pathname = usePathname()
   
   // Determine which tabs to show based on user role
   const isTasker = user?.current_mode === 'tasker'
   
+  // Define sub-pages that should hide the bottom tabs
+  const subPages = [
+    '/chat-detail',
+    '/tasker-portfolio',
+    '/settings',
+    '/task-detail',
+    '/post-task',
+    '/apply-task',
+    '/edit-profile',
+    '/tasker-application',
+    '/review',
+    '/reviews',
+    '/privacy-security',
+    '/work-schedule',
+    '/contact-us',
+    '/terms-of-service',
+    '/privacy-policy',
+    '/payment-success',
+    '/wallet',
+    '/help',
+    '/notifications',
+    '/task-applications'
+  ]
+  
+  // Check if current page should hide tabs
+  const shouldHideTabs = subPages.some(page => pathname.startsWith(page))
+  
   // Debug logging
-  console.log('TabNavigator render - isTasker:', isTasker, 'current_mode:', user?.current_mode)
+  console.log('TabNavigator render - isTasker:', isTasker, 'current_mode:', user?.current_mode, 'pathname:', pathname, 'shouldHideTabs:', shouldHideTabs)
   
   return (
     <Tabs
@@ -26,14 +54,14 @@ function TabNavigator() {
       screenOptions={{
         tabBarActiveTintColor: Colors.primary[500],
         tabBarInactiveTintColor: Colors.neutral[400],
-        tabBarStyle: isAuthenticated ? {
+        tabBarStyle: isAuthenticated && !shouldHideTabs ? {
           backgroundColor: '#fff',
           borderTopWidth: 1,
           borderTopColor: Colors.neutral[200],
           paddingBottom: 8,
           paddingTop: 8,
           height: 80,
-        } : { display: 'none' }, // Hide tabs during authentication
+        } : { display: 'none' }, // Hide tabs during authentication or on sub-pages
         headerShown: false,
       }}
     >
@@ -245,6 +273,13 @@ function TabNavigator() {
       
       <Tabs.Screen
         name="help"
+        options={{
+          href: null, // Hide from tab bar
+        }}
+      />
+      
+      <Tabs.Screen
+        name="tasker-portfolio"
         options={{
           href: null, // Hide from tab bar
         }}

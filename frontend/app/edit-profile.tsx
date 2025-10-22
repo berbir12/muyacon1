@@ -26,37 +26,21 @@ export default function EditProfile() {
   const [formData, setFormData] = useState({
     fullName: '',
     username: '',
-    email: '',
     phone: '',
     bio: '',
-    address: '',
-    city: '',
-    state: '',
-    zipCode: '',
-    skills: [] as string[],
-    languages: [] as string[],
-    experience: '',
-    certifications: [] as string[],
-    portfolio: [] as string[]
+    location: '',
+    avatarUrl: ''
   })
 
   useEffect(() => {
     if (user?.profile) {
       setFormData({
-        fullName: user.profile.full_name || '',
-        username: user.profile.username || '',
-        email: user.profile.email || '',
-        phone: user.profile.phone || '',
-        bio: user.profile.bio || '',
-        address: user.profile.address || '',
-        city: user.profile.city || '',
-        state: user.profile.state || '',
-        zipCode: user.profile.zip_code || '',
-        skills: user.profile.skills || [],
-        languages: user.profile.languages || [],
-        experience: user.profile.experience_years?.toString() || '',
-        certifications: user.profile.certifications || [],
-        portfolio: user.profile.portfolio_images || []
+        fullName: user.profile.full_name || (user as any).full_name || '',
+        username: user.profile.username || (user as any).username || '',
+        phone: user.profile.phone || (user as any).phone || '',
+        bio: (user.profile as any).bio || '',
+        location: (user.profile as any).location || '',
+        avatarUrl: user.profile.avatar_url || ''
       })
     }
   }, [user])
@@ -74,23 +58,16 @@ export default function EditProfile() {
       const updates = {
         full_name: formData.fullName,
         username: formData.username,
-        email: formData.email,
+        phone: formData.phone,
         bio: formData.bio,
-        address: formData.address,
-        city: formData.city,
-        state: formData.state,
-        zip_code: formData.zipCode,
-        skills: formData.skills,
-        languages: formData.languages,
-        experience_years: formData.experience ? parseInt(formData.experience) : 0,
-        certifications: formData.certifications,
-        portfolio_images: formData.portfolio
+        location: formData.location,
+        avatar_url: formData.avatarUrl,
       }
 
       await ProfileService.updateProfile(user.id, updates)
       
       Alert.alert('Success', 'Profile updated successfully!', [
-        { text: 'OK', onPress: () => router.back() }
+        { text: 'OK', onPress: () => router.push('/profile') }
       ])
     } catch (error) {
       console.error('Error updating profile:', error)
@@ -100,71 +77,7 @@ export default function EditProfile() {
     }
   }
 
-  const handleAddSkill = () => {
-    Alert.prompt(
-      'Add Skill',
-      'Enter a skill you can provide',
-      (text) => {
-        if (text && text.trim() && !formData.skills.includes(text.trim())) {
-          setFormData(prev => ({
-            ...prev,
-            skills: [...prev.skills, text.trim()]
-          }))
-        }
-      }
-    )
-  }
-
-  const handleRemoveSkill = (skill: string) => {
-    setFormData(prev => ({
-      ...prev,
-      skills: prev.skills.filter(s => s !== skill)
-    }))
-  }
-
-  const handleAddLanguage = () => {
-    Alert.prompt(
-      'Add Language',
-      'Enter a language you speak',
-      (text) => {
-        if (text && text.trim() && !formData.languages.includes(text.trim())) {
-          setFormData(prev => ({
-            ...prev,
-            languages: [...prev.languages, text.trim()]
-          }))
-        }
-      }
-    )
-  }
-
-  const handleRemoveLanguage = (language: string) => {
-    setFormData(prev => ({
-      ...prev,
-      languages: prev.languages.filter(l => l !== language)
-    }))
-  }
-
-  const handleAddCertification = () => {
-    Alert.prompt(
-      'Add Certification',
-      'Enter a certification you have',
-      (text) => {
-        if (text && text.trim() && !formData.certifications.includes(text.trim())) {
-          setFormData(prev => ({
-            ...prev,
-            certifications: [...prev.certifications, text.trim()]
-          }))
-        }
-      }
-    )
-  }
-
-  const handleRemoveCertification = (certification: string) => {
-    setFormData(prev => ({
-      ...prev,
-      certifications: prev.certifications.filter(c => c !== certification)
-    }))
-  }
+  // Advanced list handlers removed in minimal flow
 
   return (
     <SafeAreaView style={styles.container}>
@@ -195,13 +108,12 @@ export default function EditProfile() {
         <View style={styles.photoSection}>
           <ImageUpload
             onImageUploaded={(url: string) => {
-              // Handle image upload
-              // In a real app, you would save this URL to the profile
+              setFormData(prev => ({ ...prev, avatarUrl: url }))
             }}
             onImageRemoved={() => {
-              // Handle image removal
+              setFormData(prev => ({ ...prev, avatarUrl: '' }))
             }}
-            currentImage={user?.profile?.avatar_url || undefined}
+            currentImage={formData.avatarUrl || undefined}
             placeholder="Add Profile Photo"
           />
         </View>
@@ -232,17 +144,7 @@ export default function EditProfile() {
             />
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              style={styles.input}
-              value={formData.email}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, email: text }))}
-              placeholder="Enter your email"
-              placeholderTextColor={Colors.neutral[400]}
-              keyboardType="email-address"
-            />
-          </View>
+          {/* Email removed for now - not part of minimal profile update */}
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Phone Number</Text>
@@ -275,132 +177,18 @@ export default function EditProfile() {
           <Text style={styles.sectionTitle}>Location</Text>
           
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Address</Text>
+            <Text style={styles.label}>Location</Text>
             <TextInput
               style={styles.input}
-              value={formData.address}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, address: text }))}
-              placeholder="Enter your address"
+              value={formData.location}
+              onChangeText={(text) => setFormData(prev => ({ ...prev, location: text }))}
+              placeholder="City, Area (optional)"
               placeholderTextColor={Colors.neutral[400]}
             />
           </View>
-
-          <View style={styles.row}>
-            <View style={[styles.inputGroup, styles.halfWidth]}>
-              <Text style={styles.label}>City</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.city}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, city: text }))}
-                placeholder="City"
-                placeholderTextColor={Colors.neutral[400]}
-              />
-            </View>
-            <View style={[styles.inputGroup, styles.halfWidth]}>
-              <Text style={styles.label}>State</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.state}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, state: text }))}
-                placeholder="State"
-                placeholderTextColor={Colors.neutral[400]}
-              />
-            </View>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>ZIP Code</Text>
-            <TextInput
-              style={styles.input}
-              value={formData.zipCode}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, zipCode: text }))}
-              placeholder="ZIP Code"
-              placeholderTextColor={Colors.neutral[400]}
-              keyboardType="numeric"
-            />
-          </View>
+          {/* City/State/ZIP removed for minimal edit flow */}
         </View>
-
-        {/* Skills */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Skills</Text>
-          <Text style={styles.sectionSubtitle}>What services can you provide?</Text>
-          
-          <View style={styles.skillsContainer}>
-            {formData.skills.map((skill, index) => (
-              <View key={index} style={styles.skillChip}>
-                <Text style={styles.skillText}>{skill}</Text>
-                <TouchableOpacity onPress={() => handleRemoveSkill(skill)}>
-                  <Ionicons name="close" size={16} color={Colors.neutral[600]} />
-                </TouchableOpacity>
-              </View>
-            ))}
-            <TouchableOpacity style={styles.addButton} onPress={handleAddSkill}>
-              <Ionicons name="add" size={16} color={Colors.primary[500]} />
-              <Text style={styles.addButtonText}>Add Skill</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Languages */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Languages</Text>
-          <Text style={styles.sectionSubtitle}>What languages do you speak?</Text>
-          
-          <View style={styles.skillsContainer}>
-            {formData.languages.map((language, index) => (
-              <View key={index} style={styles.skillChip}>
-                <Text style={styles.skillText}>{language}</Text>
-                <TouchableOpacity onPress={() => handleRemoveLanguage(language)}>
-                  <Ionicons name="close" size={16} color={Colors.neutral[600]} />
-                </TouchableOpacity>
-              </View>
-            ))}
-            <TouchableOpacity style={styles.addButton} onPress={handleAddLanguage}>
-              <Ionicons name="add" size={16} color={Colors.primary[500]} />
-              <Text style={styles.addButtonText}>Add Language</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Professional Info (for taskers) */}
-        {(user?.role === 'tasker' || user?.role === 'both') && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Professional Information</Text>
-            
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Years of Experience</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.experience}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, experience: text }))}
-                placeholder="Enter years of experience"
-                placeholderTextColor={Colors.neutral[400]}
-                keyboardType="numeric"
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Certifications</Text>
-              <Text style={styles.sectionSubtitle}>What certifications do you have?</Text>
-              
-              <View style={styles.skillsContainer}>
-                {formData.certifications.map((certification, index) => (
-                  <View key={index} style={styles.skillChip}>
-                    <Text style={styles.skillText}>{certification}</Text>
-                    <TouchableOpacity onPress={() => handleRemoveCertification(certification)}>
-                      <Ionicons name="close" size={16} color={Colors.neutral[600]} />
-                    </TouchableOpacity>
-                  </View>
-                ))}
-                <TouchableOpacity style={styles.addButton} onPress={handleAddCertification}>
-                  <Ionicons name="add" size={16} color={Colors.primary[500]} />
-                  <Text style={styles.addButtonText}>Add Certification</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        )}
+        {/* Advanced fields removed for initial launch */}
       </ScrollView>
     </SafeAreaView>
   )

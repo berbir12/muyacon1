@@ -173,25 +173,31 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const loadLanguage = async () => {
     try {
       const savedLanguage = await AsyncStorage.getItem('language')
-      if (savedLanguage && (savedLanguage === 'en' || savedLanguage === 'am')) {
-        setLanguageState(savedLanguage as Language)
+      // Temporarily force English only for launch; ignore saved Amharic
+      if (savedLanguage && savedLanguage === 'en') {
+        setLanguageState('en')
+      } else if (savedLanguage === 'am') {
+        await AsyncStorage.setItem('language', 'en')
+        setLanguageState('en')
       }
     } catch (error) {
       console.error('Error loading language:', error)
     }
   }
 
-  const setLanguage = async (lang: Language) => {
+  const setLanguage = async (_lang: Language) => {
     try {
-      await AsyncStorage.setItem('language', lang)
-      setLanguageState(lang)
+      // For now, lock to English regardless of requested language
+      await AsyncStorage.setItem('language', 'en')
+      setLanguageState('en')
     } catch (error) {
       console.error('Error saving language:', error)
     }
   }
 
   const t = (key: string): string => {
-    const translations = language === 'am' ? amTranslations : enTranslations
+    // Use English only while Amharic is disabled
+    const translations = enTranslations
     return translations[key as keyof typeof translations] || key
   }
 

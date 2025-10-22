@@ -125,7 +125,10 @@ export default function ApplyTask() {
             <View style={styles.header}>
               <TouchableOpacity 
                 style={styles.backButton}
-                onPress={() => router.back()}
+                onPress={() => router.push({
+                  pathname: '/task-detail',
+                  params: { taskId: taskId as string }
+                })}
               >
                 <Ionicons name="arrow-back" size={24} color={Colors.neutral[900]} />
               </TouchableOpacity>

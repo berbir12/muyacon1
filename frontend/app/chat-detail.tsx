@@ -80,6 +80,12 @@ export default function ChatDetail() {
     }
   }, [chatId, user?.id])
 
+  // Mark messages as read on screen focus and when new messages arrive
+  useEffect(() => {
+    if (!chatId || !user?.id) return
+    ChatService.markMessagesAsRead(chatId, user.id).catch(() => {})
+  }, [chatId, user?.id, messages.length])
+
   useEffect(() => {
     if (otherUserName && otherUserName !== 'Unknown') {
       setParticipantName(otherUserName)
@@ -115,6 +121,10 @@ export default function ChatDetail() {
             message_type: message.message_type || 'text',
             status: 'delivered'
           }])
+          // Mark as read if the new message is from the other user
+          if (chatId && user?.id && message.sender_id !== user.id) {
+            ChatService.markMessagesAsRead(chatId, user.id).catch(() => {})
+          }
           
           // Scroll to bottom
           setTimeout(() => {
@@ -232,8 +242,8 @@ export default function ChatDetail() {
       }
 
       // Mark all messages as read when opening the chat
-      if (taskId) {
-        await SimpleNotificationService.markAllMessagesAsRead(taskId)
+      if (chatData.id && user?.id) {
+        await ChatService.markMessagesAsRead(chatData.id, user.id)
       }
 
     } catch (error) {

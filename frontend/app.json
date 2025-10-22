@@ -87,6 +87,6 @@
     ],
     "experiments": {
       "typedRoutes": true
-    },
+    }
   }
 }

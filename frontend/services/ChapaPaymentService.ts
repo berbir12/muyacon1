@@ -124,7 +124,7 @@ export class ChapaPaymentService {
       lastName: string
       phone: string
     }
-  ): Promise<{ checkoutUrl: string; txRef: string } | null> {
+  ): Promise<{ checkoutUrl: string; txRef: string } | { success: false; error: string; checkoutUrl: null; txRef: null }> {
     try {
       // Calculate payment breakdown
       const calculation = this.calculatePaymentBreakdown(amount)
@@ -182,8 +182,17 @@ export class ChapaPaymentService {
       }
 
       // Check if API credentials are configured
-      if (!CHAPA_CONFIG.secretKey || CHAPA_CONFIG.secretKey.includes('xxxxxxxxxxxxxxxxxxxxxxxx')) {
-        throw new Error('Chapa API credentials not configured. Please set EXPO_PUBLIC_CHAPA_SECRET_KEY in your environment variables.')
+      if (!CHAPA_CONFIG.secretKey || CHAPA_CONFIG.secretKey.includes('xxxxxxxxxxxxxxxxxxxxxxxx') || CHAPA_CONFIG.secretKey === 'CHASECK_TEST-your_secret_key_here') {
+        console.error('❌ Chapa API credentials not configured')
+        console.error('Please create a .env file in the frontend directory with:')
+        console.error('EXPO_PUBLIC_CHAPA_SECRET_KEY=your_actual_secret_key')
+        console.error('Get your keys from: https://dashboard.chapa.co/')
+        return {
+          success: false,
+          error: 'Chapa API credentials not configured. Please set EXPO_PUBLIC_CHAPA_SECRET_KEY in your environment variables.',
+          checkoutUrl: null,
+          txRef: null
+        }
       }
 
       const chapaUrl = `${CHAPA_CONFIG.baseUrl}/transaction/initialize`
@@ -265,7 +274,12 @@ export class ChapaPaymentService {
     } catch (error) {
       const appError = handleError(error, 'initializePayment')
       console.error('Error initializing Chapa payment:', appError)
-      return null
+      return {
+        success: false,
+        error: appError.message || 'Payment initialization failed',
+        checkoutUrl: null,
+        txRef: null
+      }
     }
   }
 

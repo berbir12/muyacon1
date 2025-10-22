@@ -24,6 +24,22 @@ export class TaskerApplicationService {
   // Create a new tasker application or reapply if rejected
   static async createApplication(applicationData: Omit<TaskerApplication, 'id' | 'created_at' | 'updated_at' | 'user_name'>): Promise<TaskerApplication | null> {
     try {
+      // First, get the profile_id for this user
+      console.log('🔍 Fetching profile for user_id:', applicationData.user_id)
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', applicationData.user_id)
+        .single()
+
+      if (profileError || !profile) {
+        console.error('❌ Profile not found for user:', applicationData.user_id, profileError)
+        throw new Error('User profile not found. Please complete your profile first.')
+      }
+
+      const profileId = profile.id
+      console.log('✅ Found profile_id:', profileId)
+
       // Check if user already has an application
       const existingApplication = await this.getApplicationByUserId(applicationData.user_id)
       
@@ -50,7 +66,7 @@ export class TaskerApplicationService {
               tasker_application_status: 'pending',
               updated_at: new Date().toISOString()
             })
-            .eq('user_id', applicationData.user_id)
+            .eq('id', profileId)
 
           // Send notification to admins about reapplication
           try {
@@ -82,23 +98,28 @@ export class TaskerApplicationService {
         }
       }
 
-      // Create new application
+      // Create new application with profile_id
+      console.log('📝 Creating new application with profile_id:', profileId)
       const { data, error } = await supabase
         .from('tasker_applications')
-        .insert([applicationData])
+        .insert([{
+          ...applicationData,
+          profile_id: profileId
+        }])
         .select('*')
         .single()
 
       if (error) throw error
 
       // Update user profile with application status
+      console.log('🔄 Updating profile with application status')
       await supabase
         .from('profiles')
         .update({
           tasker_application_status: 'pending',
           updated_at: new Date().toISOString()
         })
-        .eq('user_id', applicationData.user_id)
+        .eq('id', profileId)
 
       // Send notification to admins about new application
       try {
@@ -306,12 +327,37 @@ export class TaskerApplicationService {
   // Delete application
   static async deleteApplication(applicationId: string): Promise<boolean> {
     try {
+      // First get the user_id before deleting
+      const { data: application } = await supabase
+        .from('tasker_applications')
+        .select('user_id')
+        .eq('id', applicationId)
+        .single()
+
+      if (!application) {
+        console.error('Application not found')
+        return false
+      }
+
+      // Delete the application
       const { error } = await supabase
         .from('tasker_applications')
         .delete()
         .eq('id', applicationId)
 
       if (error) throw error
+
+      // Clear the profile status since application is deleted
+      await supabase
+        .from('profiles')
+        .update({
+          tasker_application_status: null,
+          role: 'customer',
+          current_mode: 'customer',
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', application.user_id)
+
       return true
     } catch (error) {
       console.error('Error deleting application:', error)

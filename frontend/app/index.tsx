@@ -13,10 +13,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
+import * as SplashScreen from 'expo-splash-screen'
 import { useAuth } from '../contexts/SimpleAuthContext'
 import { useNotifications } from '../contexts/NotificationContext'
 import { TaskService, Task } from '../services/TaskService'
 import Colors from '../constants/Colors'
+
+// Keep the splash screen visible while we fetch resources
+SplashScreen.preventAutoHideAsync()
 
 const { width } = Dimensions.get('window')
 
@@ -115,18 +119,16 @@ export default function Index() {
   useEffect(() => {
     loadTasks()
   }, [user])
+
+  // Hide splash screen when app is ready
+  useEffect(() => {
+    if (!isLoading) {
+      SplashScreen.hideAsync()
+    }
+  }, [isLoading])
   
   if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <View style={styles.loadingContent}>
-          <View style={styles.logoContainer}>
-            <Ionicons name="rocket" size={48} color={Colors.primary[500]} />
-          </View>
-          <Text style={styles.loadingText}>Loading...</Text>
-        </View>
-      </View>
-    )
+    return null // Let the native splash screen show
   }
 
   if (!isAuthenticated) {
@@ -271,7 +273,7 @@ export default function Index() {
             </TouchableOpacity>
           </View>
           {loadingTasks ? (
-            <View style={styles.loadingContainer}>
+            <View style={styles.emptyState}>
               <ActivityIndicator size="small" color={Colors.primary[500]} />
               <Text style={styles.loadingTextSmall}>Loading tasks...</Text>
             </View>
@@ -389,28 +391,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background.secondary,
-  },
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: Colors.background.primary,
-  },
-  loadingContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  logoContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: Colors.primary[100],
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  loadingText: {
-    fontSize: 18,
-    color: Colors.neutral[600],
   },
   scrollView: {
     flex: 1,
@@ -697,6 +677,7 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
     color: Colors.neutral[500],
+
     textAlign: 'center',
   },
   loadingTextSmall: {

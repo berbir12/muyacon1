@@ -1,15 +1,43 @@
-const { getDefaultConfig } = require("expo/metro-config");
+const { getDefaultConfig } = require('expo/metro-config');
 
 const config = getDefaultConfig(__dirname);
 
-// // Exclude unnecessary directories from file watching
-// config.watchFolders = [__dirname];
-// config.resolver.blacklistRE = /(.*)\/(__tests__|android|ios|build|dist|.git|node_modules\/.*\/android|node_modules\/.*\/ios|node_modules\/.*\/windows|node_modules\/.*\/macos)(\/.*)?$/;
+// Force cache reset to fix InternalBytecode.js errors
+config.resetCache = true;
 
-// // Alternative: use a more aggressive exclusion pattern
-// config.resolver.blacklistRE = /node_modules\/.*\/(android|ios|windows|macos|__tests__|\.git|.*\.android\.js|.*\.ios\.js)$/;
+// Disable problematic cache features
+config.cacheStores = [];
 
-// Reduce the number of workers to decrease resource usage
-config.maxWorkers = 2;
+// Add resolver configuration to handle OneDrive paths
+config.resolver = {
+  ...config.resolver,
+  // Handle OneDrive path issues
+  platforms: ['ios', 'android', 'native', 'web'],
+  // Disable symlinks to avoid OneDrive issues
+  useGlobalHotkey: false,
+};
+
+// Transformer configuration
+config.transformer = {
+  ...config.transformer,
+  // Disable source maps temporarily to avoid InternalBytecode.js
+  minifierConfig: {
+    keep_fnames: true,
+    mangle: {
+      keep_fnames: true,
+    },
+  },
+};
+
+// Serializer configuration
+config.serializer = {
+  ...config.serializer,
+  // Custom module ID factory to avoid path issues
+  createModuleIdFactory: () => (path) => {
+    // Use a hash of the path to avoid OneDrive path issues
+    const crypto = require('crypto');
+    return crypto.createHash('md5').update(path).digest('hex').substring(0, 8);
+  },
+};
 
 module.exports = config;

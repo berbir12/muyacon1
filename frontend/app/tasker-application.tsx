@@ -248,7 +248,7 @@ export default function TaskerApplication() {
   return (
     <SafeAreaView style={styles.container}>
             <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity onPress={() => router.push('/profile')} style={styles.backButton}>
                 <Ionicons name="arrow-back" size={24} color={Colors.neutral[900]} />
               </TouchableOpacity>
         <Text style={styles.title}>Become a Tasker</Text>

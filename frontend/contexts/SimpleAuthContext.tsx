@@ -3,6 +3,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SimpleUserProfile } from '../types/SimpleUserProfile';
+import { ProfileSyncService } from '../services/ProfileSyncService';
 
 interface AuthContextType {
   user: SimpleUserProfile | null;
@@ -244,6 +245,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const refreshUserProfile = async () => {
     if (!user) return;
+    
+    // First sync the profile with tasker application status
+    await ProfileSyncService.syncProfileWithTaskerApplication(user.user_id);
+    
+    // Then load the updated profile
     await loadUserProfile(user.user_id);
   };
 

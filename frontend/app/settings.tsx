@@ -183,14 +183,7 @@ export default function Settings() {
           value: (settings?.theme ?? 'system') === 'dark',
           onToggle: toggleDarkMode
         },
-        {
-          icon: 'language-outline',
-          title: 'Language',
-          subtitle: language === 'am' ? 'አማርኛ' : 'English',
-          switch: true,
-          value: language === 'am',
-          onToggle: toggleLanguage
-        }
+        // Temporarily hide language switch until post-launch
       ]
     },
     {

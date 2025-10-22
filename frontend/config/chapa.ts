@@ -3,9 +3,9 @@
 
 export const CHAPA_CONFIG = {
   // Get these from your Chapa dashboard: https://dashboard.chapa.co/
-  publicKey: process.env.EXPO_PUBLIC_CHAPA_PUBLIC_KEY,
-  secretKey: process.env.EXPO_PUBLIC_CHAPA_SECRET_KEY,
-  webhookSecret: process.env.EXPO_PUBLIC_CHAPA_WEBHOOK_SECRET,
+  publicKey: process.env.EXPO_PUBLIC_CHAPA_PUBLIC_KEY || 'CHAPUBK_TEST-dtyRbkCvLfkYMpzXE6IbUMSPJC1XvJ1q',
+  secretKey: process.env.EXPO_PUBLIC_CHAPA_SECRET_KEY || 'CHASECK_TEST-zN7gCzpRPrCM83Xkbm9K1QbIhZAzF4HZ',
+  webhookSecret: process.env.EXPO_PUBLIC_CHAPA_WEBHOOK_SECRET || 'qwertyuil@1A',
   
   // Company information
   companyName: 'Muyacon',
