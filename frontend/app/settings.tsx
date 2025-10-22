@@ -218,6 +218,19 @@ export default function Settings() {
           showArrow: true
         },
       ]
+    },
+    {
+      title: 'Account Actions',
+      items: [
+        {
+          icon: 'log-out-outline',
+          title: 'Logout',
+          subtitle: 'Sign out of your account',
+          onPress: handleLogout,
+          showArrow: true,
+          color: Colors.error[500]
+        },
+      ]
     }
   ]
 
@@ -226,12 +239,8 @@ export default function Settings() {
       {/* Header */}
       <Header
         title="Settings"
-        rightAction={{
-          icon: 'log-out-outline',
-          label: 'Logout',
-          onPress: handleLogout,
-          color: Colors.error[500]
-        }}
+        showBackButton={true}
+        onBackPress={() => router.push('/profile')}
       />
 
       {/* User Info */}

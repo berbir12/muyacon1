@@ -128,6 +128,18 @@ export class RatingService {
 
       if (error) throw error
 
+      // Delete chat and all messages for this task when completed
+      try {
+        const { ChatService } = await import('./ChatService')
+        const chatDeleted = await ChatService.deleteChatByTaskId(taskId)
+        if (chatDeleted) {
+          console.log('✅ Chat deleted successfully for completed task after rating:', taskId)
+        }
+      } catch (chatError) {
+        console.error('Error deleting chat for completed task after rating:', chatError)
+        // Don't fail the main operation if chat deletion fails
+      }
+
       return true
 
     } catch (error) {

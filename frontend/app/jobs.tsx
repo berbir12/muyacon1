@@ -26,6 +26,7 @@ import ChapaPaymentModal from '../components/ChapaPaymentModal'
 // import RatingModal from '../components/RatingModal'
 import JobsHeader from '../components/JobsHeader'
 import Colors from '../constants/Colors'
+import SkeletonLoader, { SkeletonList } from '../components/SkeletonLoader'
 
 const { width } = Dimensions.get('window')
 
@@ -610,15 +611,27 @@ export default function Jobs() {
         bounces={true}
         scrollEventThrottle={16}
       >
-        <LoadingErrorState
-          loading={loading}
-          error={error}
-          empty={!loading && filteredTasks.length === 0}
-          emptyMessage="No tasks found. Try adjusting your search criteria."
-          emptyIcon="briefcase-outline"
-          onRetry={loadTasks}
-        >
-          {filteredTasks.map((task) => (
+        {loading ? (
+          <SkeletonList count={5} />
+        ) : error ? (
+          <LoadingErrorState
+            loading={false}
+            error={error}
+            empty={false}
+            onRetry={loadTasks}
+          />
+        ) : filteredTasks.length === 0 ? (
+          <LoadingErrorState
+            loading={false}
+            error={null}
+            empty={true}
+            emptyMessage="No tasks found. Try adjusting your search criteria."
+            emptyIcon="briefcase-outline"
+            onRetry={loadTasks}
+          />
+        ) : (
+          <>
+            {filteredTasks.map((task) => (
             <TouchableOpacity 
               key={task.id} 
               style={styles.taskCard}
@@ -801,8 +814,9 @@ export default function Jobs() {
                 )}
         </View>
             </TouchableOpacity>
-          ))}
-        </LoadingErrorState>
+            ))}
+          </>
+        )}
       </ScrollView>
 
       {/* Advanced Search Modal */}

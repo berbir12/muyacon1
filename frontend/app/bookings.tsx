@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router'
 import { useAuth } from '../contexts/SimpleAuthContext'
 import { BookingService, Booking } from '../services/BookingService'
 import Colors from '../constants/Colors'
+import SkeletonLoader, { SkeletonList } from '../components/SkeletonLoader'
 
 const statusColors = {
   pending: Colors.warning[500],
@@ -56,7 +57,7 @@ export default function Bookings() {
     }
   }, [isAuthenticated, isLoading])
 
-  const statuses = ['all', 'pending', 'confirmed', 'in_progress', 'completed', 'cancelled']
+  const statuses = ['all', 'pending', 'completed']
 
   useEffect(() => {
     if (user && isAuthenticated) {
@@ -176,6 +177,19 @@ export default function Bookings() {
               {user ? `Manage your ${user.current_mode} bookings` : 'Manage your bookings'}
             </Text>
           </View>
+          <View style={styles.headerStats}>
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{filteredBookings.length}</Text>
+              <Text style={styles.statLabel}>Total</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>
+                {filteredBookings.filter(b => b.status === 'pending').length}
+              </Text>
+              <Text style={styles.statLabel}>Pending</Text>
+            </View>
+          </View>
         </View>
       </View>
 
@@ -218,10 +232,7 @@ export default function Bookings() {
         scrollEventThrottle={16}
       >
         {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.primary[500]} />
-            <Text style={styles.loadingText}>Loading bookings...</Text>
-          </View>
+          <SkeletonList count={5} />
         ) : (
           filteredBookings.map((booking) => (
             <View key={booking.id} style={styles.bookingCard}>
@@ -239,7 +250,7 @@ export default function Bookings() {
                       {statusLabels[booking.status]}
                     </Text>
                   </View>
-                  {booking.is_task_based && booking.task_status && (
+                  {booking.is_task_based && booking.task_status && booking.task_status !== booking.status && (
                     <View style={[styles.taskStatusBadge, { backgroundColor: statusColors[booking.task_status] + '20' }]}>
                       <Text style={[styles.taskStatusText, { color: statusColors[booking.task_status] }]}>
                         Task: {taskStatusLabels[booking.task_status]}
@@ -438,6 +449,35 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontSize: 16,
     color: Colors.neutral[600],
+  },
+  headerStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primary[50],
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
+    gap: 12,
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statNumber: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.primary[600],
+  },
+  statLabel: {
+    fontSize: 11,
+    color: Colors.primary[500],
+    fontWeight: '500',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  statDivider: {
+    width: 1,
+    height: 20,
+    backgroundColor: Colors.primary[200],
   },
   notificationButton: {
     width: 44,

@@ -58,9 +58,9 @@ function TabNavigator() {
           backgroundColor: '#fff',
           borderTopWidth: 1,
           borderTopColor: Colors.neutral[200],
-          paddingBottom: 8,
-          paddingTop: 8,
-          height: 80,
+          paddingBottom: 4,
+          paddingTop: 4,
+          height: 70,
         } : { display: 'none' }, // Hide tabs during authentication or on sub-pages
         headerShown: false,
       }}

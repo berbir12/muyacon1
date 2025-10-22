@@ -18,6 +18,7 @@ import { useRouter, useFocusEffect } from 'expo-router'
 import { useAuth } from '../contexts/SimpleAuthContext'
 import { RealtimeChatService, Chat } from '../services/RealtimeChatService'
 import Colors from '../constants/Colors'
+import SkeletonLoader, { SkeletonList } from '../components/SkeletonLoader'
 
 const { width } = Dimensions.get('window')
 
@@ -50,8 +51,7 @@ export default function Chats() {
     React.useCallback(() => {
       if (isAuthenticated) {
         loadChats()
-      }
-      return () => {
+        // Clear any cleared chats when returning to refresh unread counts
         setClearedChats(new Set())
       }
     }, [isAuthenticated])
@@ -93,15 +93,23 @@ export default function Chats() {
     setRefreshing(false)
   }
 
-  const handleChatSelect = (chatId: string) => {
+  const handleChatSelect = async (chatId: string) => {
     // Optimistically clear unread badge for immediate feedback
     setChats(prev => prev.map(c => c.id === chatId ? { ...c, unread_count: 0 } : c))
     setFilteredChats(prev => prev.map(c => c.id === chatId ? { ...c, unread_count: 0 } : c))
     setClearedChats(prev => new Set([...Array.from(prev), chatId]))
+    
     if (user?.id) {
-      // Mark as read in background
-      RealtimeChatService.markMessagesAsRead(chatId, user.id).catch(() => {})
+      // Mark as read in background and refresh the chat list
+      try {
+        await RealtimeChatService.markMessagesAsRead(chatId, user.id)
+        // Reload chats to get updated unread counts
+        await loadChats()
+      } catch (error) {
+        console.error('Error marking messages as read:', error)
+      }
     }
+    
     router.push(`/chat-detail?chatId=${chatId}`)
   }
 
@@ -148,6 +156,7 @@ export default function Chats() {
 
   const renderChat = ({ item }: { item: Chat }) => {
     const otherParticipant = getOtherParticipant(item)
+    // Only show unread if it's not in cleared chats and has actual unread count
     const effectiveUnread = clearedChats.has(item.id) ? 0 : (item.unread_count || 0)
     const hasUnread = effectiveUnread > 0
     const lastMessage = getLastMessagePreview(item)
@@ -269,7 +278,9 @@ export default function Chats() {
       </View>
       
       {/* Chat List */}
-      {filteredChats.length === 0 ? (
+      {loading ? (
+        <SkeletonList count={5} />
+      ) : filteredChats.length === 0 ? (
         <View style={styles.emptyContainer}>
           <View style={styles.emptyIcon}>
             <Ionicons name="chatbubbles-outline" size={64} color={Colors.neutral[300]} />

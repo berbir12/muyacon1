@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router'
 import { useAuth } from '../contexts/SimpleAuthContext'
 import Colors from '../constants/Colors'
 import { supabase } from '../lib/supabase'
+import SkeletonLoader, { SkeletonCard } from '../components/SkeletonLoader'
 
 export default function Profile() {
   const { user, logout, switchMode, isAuthenticated, isLoading, refreshUserProfile } = useAuth()
@@ -66,9 +67,11 @@ export default function Profile() {
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading...</Text>
-        </View>
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+          <SkeletonCard style={styles.profileSkeleton} />
+          <SkeletonCard style={styles.statsSkeleton} />
+          <SkeletonCard style={styles.actionsSkeleton} />
+        </ScrollView>
       </SafeAreaView>
     )
   }
@@ -771,5 +774,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.neutral[600],
     marginTop: 10,
+  },
+  profileSkeleton: {
+    marginBottom: 20,
+  },
+  statsSkeleton: {
+    marginBottom: 20,
+  },
+  actionsSkeleton: {
+    marginBottom: 20,
   },
 })
