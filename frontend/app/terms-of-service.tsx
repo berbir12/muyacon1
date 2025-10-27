@@ -35,12 +35,12 @@ export default function TermsOfService() {
           
           <Text style={styles.sectionTitle}>1. Acceptance of Terms</Text>
           <Text style={styles.sectionText}>
-            By accessing and using Muyacon, you accept and agree to be bound by the terms and provision of this agreement. If you do not agree to abide by the above, please do not use this service.
+            By accessing and using Mescott, you accept and agree to be bound by the terms and provision of this agreement. If you do not agree to abide by the above, please do not use this service.
           </Text>
 
           <Text style={styles.sectionTitle}>2. Description of Service</Text>
           <Text style={styles.sectionText}>
-            Muyacon is a platform that connects customers with taskers for various services. We provide a marketplace where users can post tasks and find qualified individuals to complete them.
+            Mescott is a platform that connects customers with taskers for various services. We provide a marketplace where users can post tasks and find qualified individuals to complete them.
           </Text>
 
           <Text style={styles.sectionTitle}>3. User Responsibilities</Text>
@@ -88,12 +88,12 @@ export default function TermsOfService() {
 
           <Text style={styles.sectionTitle}>8. Intellectual Property</Text>
           <Text style={styles.sectionText}>
-            The service and its original content, features, and functionality are and will remain the exclusive property of Muyacon and its licensors. The service is protected by copyright, trademark, and other laws.
+            The service and its original content, features, and functionality are and will remain the exclusive property of Mescott and its licensors. The service is protected by copyright, trademark, and other laws.
           </Text>
 
           <Text style={styles.sectionTitle}>9. Limitation of Liability</Text>
           <Text style={styles.sectionText}>
-            In no event shall Muyacon, nor its directors, employees, partners, agents, suppliers, or affiliates, be liable for any indirect, incidental, special, consequential, or punitive damages, including without limitation, loss of profits, data, use, goodwill, or other intangible losses.
+            In no event shall Mescott, nor its directors, employees, partners, agents, suppliers, or affiliates, be liable for any indirect, incidental, special, consequential, or punitive damages, including without limitation, loss of profits, data, use, goodwill, or other intangible losses.
           </Text>
 
           <Text style={styles.sectionTitle}>10. Termination</Text>
@@ -109,9 +109,9 @@ export default function TermsOfService() {
           <Text style={styles.sectionTitle}>12. Contact Information</Text>
           <Text style={styles.sectionText}>
             If you have any questions about these Terms of Service, please contact us at:{'\n'}
-            Email: support@muyacon.com{'\n'}
+            Email: support@mescott.com{'\n'}
             Phone: +251-911-234-567{'\n'}
-            Website: https://muyacon.com{'\n'}
+            Website: https://mescott.com{'\n'}
             Address: Addis Ababa, Ethiopia
           </Text>
         </View>

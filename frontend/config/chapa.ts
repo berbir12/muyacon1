@@ -8,8 +8,8 @@ export const CHAPA_CONFIG = {
   webhookSecret: process.env.EXPO_PUBLIC_CHAPA_WEBHOOK_SECRET || 'qwertyuil@1A',
   
   // Company information
-  companyName: 'Muyacon',
-  companyLogo: 'https://muyacon.com/logo.png', // Update with your actual logo URL
+  companyName: 'Mescott',
+  companyLogo: 'https://mescott.com/logo.png', // Update with your actual logo URL
   
   // Payment configuration
   currency: 'ETB',
@@ -19,7 +19,7 @@ export const CHAPA_CONFIG = {
   // API URLs - Use main endpoint (test keys work with main endpoint)
   baseUrl: 'https://api.chapa.co/v1',
   webhookUrl: 'https://mchapaw-n0utcbuab-bereket-birhanu-kinfus-projects.vercel.app/api/webhook',
-  returnUrl: 'https://muyacon.com/payment-success', // Update with your actual app URL
+  returnUrl: 'https://mescott.com/payment-success', // Update with your actual app URL
 }
 
 // Instructions for setup:

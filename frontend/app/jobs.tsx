@@ -18,6 +18,7 @@ import { useAuth } from '../contexts/SimpleAuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import { TaskService, Task } from '../services/TaskService'
 import { TaskApplicationService } from '../services/TaskApplicationService'
+import { ChatService } from '../services/ChatService'
 import { SearchService, SearchFilters } from '../services/SearchService'
 import { PaymentService, Payment } from '../services/PaymentService'
 import AdvancedSearch from '../components/AdvancedSearch'
@@ -103,12 +104,12 @@ export default function Jobs() {
   // Show loading while auth is being determined
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.primary[500]} />
           <Text style={styles.loadingText}>Loading...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     )
   }
 
@@ -190,7 +191,7 @@ export default function Jobs() {
 
     // Get customer info for Chapa payment
     const customerInfo = {
-      email: user.profile?.email || 'customer@muyacon.com',
+      email: user.profile?.email || 'customer@mescott.com',
       firstName: user.name?.split(' ')[0] || 'Customer',
       lastName: user.name?.split(' ').slice(1).join(' ') || 'User',
       phone: user.phone || '+251911234567'
@@ -370,7 +371,7 @@ export default function Jobs() {
   }
 
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
         {/* Header */}
         <JobsHeader
           title={activeTab === 'available' ? t('jobs.available') : t('jobs.my_tasks')}
@@ -378,6 +379,26 @@ export default function Jobs() {
           onCreateTask={() => router.push('/post-task')}
           createTaskText={t('jobs.create_task')}
         />
+
+        {/* Tab Navigation */}
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'available' && styles.activeTab]}
+            onPress={() => setActiveTab('available')}
+          >
+            <Text style={[styles.tabText, activeTab === 'available' && styles.activeTabText]}>
+              Available
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'my' && styles.activeTab]}
+            onPress={() => setActiveTab('my')}
+          >
+            <Text style={[styles.tabText, activeTab === 'my' && styles.activeTabText]}>
+              My Tasks
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Search Bar */}
         <View style={styles.searchContainer}>
@@ -409,11 +430,11 @@ export default function Jobs() {
         {/* Enhanced Filter Panel */}
         {showFilters && (
           <View style={styles.filterPanel}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll} bounces={false} alwaysBounceVertical={false} overScrollMode="never">
               {/* Budget Range Filter */}
               <View style={styles.filterSection}>
                 <Text style={styles.filterLabel}>{t('jobs.budget_range')}</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} bounces={false} alwaysBounceVertical={false} overScrollMode="never">
                   {budgetRanges.map((range, index) => (
                     <TouchableOpacity
                       key={index}
@@ -437,7 +458,7 @@ export default function Jobs() {
               {/* Sort Options */}
               <View style={styles.filterSection}>
                 <Text style={styles.filterLabel}>Sort By</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} bounces={false} alwaysBounceVertical={false} overScrollMode="never">
                   {sortOptions.map((option) => (
                     <TouchableOpacity
                       key={option.value}
@@ -461,7 +482,7 @@ export default function Jobs() {
               {/* Date Filter */}
               <View style={styles.filterSection}>
                 <Text style={styles.filterLabel}>Date</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} bounces={false} alwaysBounceVertical={false} overScrollMode="never">
                   {[
                     { label: 'Any Date', value: 'any' },
                     { label: 'Today', value: 'today' },
@@ -490,7 +511,7 @@ export default function Jobs() {
               {/* Urgency Filter */}
               <View style={styles.filterSection}>
                 <Text style={styles.filterLabel}>Urgency</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} bounces={false} alwaysBounceVertical={false} overScrollMode="never">
                   {[
                     { label: 'Any', value: 'any' },
                     { label: 'Urgent', value: 'urgent' },
@@ -553,26 +574,6 @@ export default function Jobs() {
           </View>
         )}
 
-      {/* Tab Navigation */}
-      <View style={styles.tabContainer}>
-          <TouchableOpacity
-          style={[styles.tab, activeTab === 'available' && styles.activeTab]}
-          onPress={() => setActiveTab('available')}
-        >
-          <Text style={[styles.tabText, activeTab === 'available' && styles.activeTabText]}>
-            Available
-          </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-          style={[styles.tab, activeTab === 'my' && styles.activeTab]}
-          onPress={() => setActiveTab('my')}
-        >
-          <Text style={[styles.tabText, activeTab === 'my' && styles.activeTabText]}>
-            My Tasks
-            </Text>
-          </TouchableOpacity>
-      </View>
-
       {/* Category Filters */}
       {activeTab === 'available' && (
         <View style={styles.filtersSection}>
@@ -580,6 +581,9 @@ export default function Jobs() {
             horizontal 
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.filtersScroll}
+            bounces={false}
+            alwaysBounceVertical={false}
+            overScrollMode="never"
           >
             {categories.map((category) => (
           <TouchableOpacity
@@ -608,7 +612,9 @@ export default function Jobs() {
         showsVerticalScrollIndicator={true}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.scrollContent}
-        bounces={true}
+        bounces={false}
+        alwaysBounceVertical={false}
+        overScrollMode="never"
         scrollEventThrottle={16}
       >
         {loading ? (
@@ -648,11 +654,22 @@ export default function Jobs() {
               style={styles.taskImage}
               resizeMode="cover"
             />
-            {task.photos.length > 1 && (
-              <View style={styles.imageCountBadge}>
-                <Text style={styles.imageCountText}>+{task.photos.length - 1}</Text>
+            {/* Image overlay with icons */}
+            <View style={styles.imageOverlay}>
+              {task.photos.length > 1 && (
+                <View style={styles.imageCountBadge}>
+                  <Text style={styles.imageCountText}>+{task.photos.length - 1}</Text>
+                </View>
+              )}
+              <View style={styles.imageActions}>
+                <TouchableOpacity style={styles.imageActionButton}>
+                  <Ionicons name="heart-outline" size={18} color="#fff" />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.imageActionButton}>
+                  <Ionicons name="chatbubble-outline" size={18} color="#fff" />
+                </TouchableOpacity>
               </View>
-            )}
+            </View>
           </View>
         )}
 
@@ -720,13 +737,14 @@ export default function Jobs() {
                       <Text style={styles.ratingText}>{task.customer_rating || 5.0}</Text>
                     </View>
                   )}
-                  {activeTab === 'my' && (
+                  {/* Remove redundant status tag for My Tasks tab */}
+                  {activeTab === 'my' && task.status !== 'assigned' && (
                     <View style={[styles.statusTag, { backgroundColor: getStatusColor(task.status) + '15' }]}>
                       <Text style={[styles.statusTagText, { color: getStatusColor(task.status) }]}>
                         {getStatusLabel(task.status)}
-                </Text>
-              </View>
-            )}
+                      </Text>
+                    </View>
+                  )}
           </View>
 
                 {/* Action Button - Different for available vs my tasks */}
@@ -783,15 +801,37 @@ export default function Jobs() {
                     ) : task.tasker_id ? (
                       <TouchableOpacity 
                         style={[styles.actionButton, styles.messageButton]}
-                        onPress={() => {
-                          router.push({
-                            pathname: '/chat-detail',
-                            params: { 
-                              taskId: task.id,
-                              taskerId: task.tasker_id,
-                              taskerName: task.tasker_name || 'Tasker'
+                        onPress={async () => {
+                          if (!user?.id || !task.tasker_id) {
+                            Alert.alert('Error', 'Unable to start chat. Missing user or tasker information.')
+                            return
+                          }
+                          
+                          try {
+                            // Get or create chat for this task
+                            const chat = await ChatService.getOrCreateChat(
+                              task.id, 
+                              user.id, // This is the profile ID
+                              task.tasker_id // This is also a profile ID
+                            )
+                            
+                            if (chat) {
+                              router.push({
+                                pathname: '/chat-detail',
+                                params: { 
+                                  chatId: chat.id,
+                                  taskId: task.id,
+                                  taskTitle: task.title,
+                                  otherUserName: task.tasker_name || 'Tasker'
+                                }
+                              })
+                            } else {
+                              Alert.alert('Error', 'Unable to start chat. Please try again.')
                             }
-                          })
+                          } catch (error) {
+                            console.error('Error creating chat:', error)
+                            Alert.alert('Error', 'Unable to start chat. Please try again.')
+                          }
                         }}
                       >
                         <Ionicons name="chatbubble" size={16} color="#fff" />
@@ -842,7 +882,7 @@ export default function Jobs() {
           }
         }}
         customerInfo={{
-          email: user?.profile?.email || 'customer@muyacon.com',
+          email: user?.profile?.email || 'customer@mescott.com',
           firstName: user?.name?.split(' ')[0] || 'Customer',
           lastName: user?.name?.split(' ').slice(1).join(' ') || 'User',
           phone: user?.phone || '+251911234567'
@@ -867,14 +907,14 @@ export default function Jobs() {
           technicianName={selectedTaskForRating.tasker_name || 'Technician'}
         />
       )} */}
-    </SafeAreaView>
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background.secondary,
+    backgroundColor: '#FAFAFA', // Very light gray background for scrollable content
   },
   notificationButton: {
     width: 44,
@@ -904,12 +944,17 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.background.secondary,
-    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginTop: 16, // Add spacing between tabs and search
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: Colors.border.primary,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   searchInput: {
     flex: 1,
@@ -919,30 +964,37 @@ const styles = StyleSheet.create({
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: Colors.background.primary,
-    marginHorizontal: 20,
-    marginTop: 20,
-    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginTop: 16, // Add spacing between header and tabs
+    borderRadius: 12,
     padding: 4,
-    borderWidth: 1,
-    borderColor: Colors.border.primary,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   tab: {
     flex: 1,
     paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
     alignItems: 'center',
-    borderRadius: 12,
+    justifyContent: 'center',
   },
   activeTab: {
     backgroundColor: Colors.primary[500],
   },
   tabText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '500',
     color: Colors.neutral[600],
   },
   activeTabText: {
-    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600', // Semi-bold for active tab
+    color: '#FFFFFF',
   },
   filtersSection: {
     paddingVertical: 16,
@@ -1026,9 +1078,10 @@ const styles = StyleSheet.create({
   },
   tasksList: {
     flex: 1,
-    paddingHorizontal: 20,
+    backgroundColor: '#FAFAFA', // Match container background
   },
   scrollContent: {
+    paddingTop: 16, // Add spacing between tab section and first task card
     paddingBottom: 20,
   },
   loadingContainer: {
@@ -1044,7 +1097,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
-    marginVertical: 6,
+    marginVertical: 8, // Increased vertical spacing between cards
+    marginHorizontal: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -1078,6 +1132,29 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
+  imageOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    padding: 8,
+  },
+  imageActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  imageActionButton: {
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 20,
+    padding: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   taskHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1095,15 +1172,17 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   priceContainer: {
-    backgroundColor: Colors.success[500],
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    backgroundColor: Colors.primary[50],
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.primary[200],
   },
   taskPrice: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700', // Bold font for price
+    color: Colors.primary[600],
   },
   descriptionContainer: {
     marginBottom: 10,

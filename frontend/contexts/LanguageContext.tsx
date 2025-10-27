@@ -35,7 +35,7 @@ const enTranslations = {
   'nav.profile': 'Profile',
   
   // Auth
-  'auth.welcome': 'Welcome to Muyacon',
+  'auth.welcome': 'Welcome to Mescott',
   'auth.login': 'Login',
   'auth.register': 'Register',
   'auth.phone': 'Phone Number',

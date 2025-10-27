@@ -822,11 +822,40 @@ export class BookingService {
               }
             }
 
-            // Delete chat and all messages for this task
+            // Delete chat and all messages for this task when completed
             try {
-              const chatDeleted = await (ChatService as any).deleteChatByTaskId(application.task_id)
+              console.log('🗑️ Deleting chat for completed booking task:', application.task_id)
+              
+              // Find chat for this task
+              const { data: chat, error: findError } = await supabase
+                .from('chats')
+                .select('id')
+                .eq('task_id', application.task_id)
+                .maybeSingle()
+
+              if (!findError && chat) {
+                // Delete messages and chat in parallel
+                const [messagesResult, chatResult] = await Promise.allSettled([
+                  supabase
+                    .from('messages_new')
+                    .delete()
+                    .eq('chat_id', chat.id),
+                  supabase
+                    .from('chats')
+                    .delete()
+                    .eq('id', chat.id)
+                ])
+
+                if (messagesResult.status === 'fulfilled' && chatResult.status === 'fulfilled') {
+                  console.log('✅ Chat and messages deleted successfully for completed booking task:', application.task_id)
+                } else {
+                  console.error('Error deleting chat for completed booking task:', { messagesResult, chatResult })
+                }
+              } else {
+                console.log('ℹ️ No chat found for completed booking task:', application.task_id)
+              }
             } catch (chatError) {
-              console.error('Error deleting chat for completed task:', chatError)
+              console.error('Error deleting chat for completed booking task:', chatError)
               // Don't fail the main operation
             }
           } catch (paymentError) {

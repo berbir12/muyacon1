@@ -437,10 +437,6 @@ export class ChatService {
     RealtimeChatService.unsubscribeFromChat(chatId)
   }
 
-  // Send typing indicator (placeholder - can be implemented later)
-  static async sendTypingIndicator(chatId: string, isTyping: boolean): Promise<void> {
-    // This is a placeholder - typing indicators can be implemented later
-  }
 
   // Send message to chat (alias for sendMessage)
   static async sendMessageToChat(chatId: string, messageText: string, senderId: string): Promise<boolean> {

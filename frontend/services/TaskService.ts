@@ -72,6 +72,7 @@ export interface TaskApplication {
   // Additional fields for display
   tasker_name?: string
   tasker_rating?: number
+  tasker_avatar_url?: string
 }
 
 export class TaskService {
@@ -163,31 +164,34 @@ export class TaskService {
       
       console.log('Excluding tasks created by user_id:', userProfile.user_id)
       
-      // Use a simpler approach - get all open tasks first, then filter
-      const { data: allTasks, error: allTasksError } = await supabase
+      // Use direct query instead of fetching all tasks
+      const { data: tasks, error: tasksError } = await supabase
         .from('tasks')
         .select('*')
         .eq('status', 'open')
+        .neq('user_id', userProfile.user_id) // Exclude tasks created by this user
         .order('created_at', { ascending: false })
 
-      if (allTasksError) {
-        console.error('Error fetching all tasks:', allTasksError)
-        throw allTasksError
+      if (tasksError) {
+        console.error('Error fetching available tasks:', tasksError)
+        throw tasksError
       }
 
-      // Filter out tasks created by this user
-      const data = allTasks?.filter(task => task.user_id !== userProfile.user_id) || []
-      console.log('Filtered tasks count:', data.length, 'out of', allTasks?.length || 0)
+      console.log('Available tasks count:', tasks?.length || 0)
+      console.log('Available tasks query result:', { data: tasks?.length || 0, error: null })
 
-      console.log('Available tasks query result:', { data: data?.length, error: null })
+      if (!tasks || tasks.length === 0) {
+        console.log('No available tasks found')
+        return []
+      }
 
       // Get customer names and category names separately to avoid foreign key issues
-      const customerIds = [...new Set(data.map(task => task.customer_id))];
-      const categoryIds = [...new Set(data.map(task => task.category_id))];
+      const customerIds = [...new Set(tasks.map(task => task.customer_id))];
+      const categoryIds = [...new Set(tasks.map(task => task.category_id))];
       const customerMap = await this.getProfileNames(customerIds);
       const categoryMap = await this.getCategoryNames(categoryIds);
 
-      const mappedTasks = data.map(task => ({
+      const mappedTasks = tasks.map(task => ({
         ...task,
         customer_name: customerMap.get(task.customer_id) || 'Unknown',
         category_name: categoryMap.get(task.category_id) || 'Other',
@@ -203,10 +207,10 @@ export class TaskService {
     }
   }
 
-  // Get user's posted tasks
+  // Get user's posted tasks - OPTIMIZED VERSION
   static async getMyTasks(userId: string): Promise<Task[]> {
     try {
-      console.log('🚀 NEW CODE RUNNING - Getting my tasks for user:', userId)
+      console.log('🚀 OPTIMIZED CODE RUNNING - Getting my tasks for user:', userId)
       
       // First get the profile ID for this user
       const { data: profile, error: profileError } = await supabase
@@ -216,7 +220,6 @@ export class TaskService {
         .maybeSingle()
 
       console.log('Profile lookup for my tasks:', { profile, profileError })
-      console.log('DEBUG: profile.user_id =', profile?.user_id)
 
       if (!profile) {
         console.log('No profile found for my tasks')
@@ -225,31 +228,34 @@ export class TaskService {
 
       console.log('Getting my tasks for user_id:', profile.user_id)
       console.log('Profile details:', { id: profile.id, user_id: profile.user_id, full_name: profile.full_name })
-      console.log('Query will look for tasks where user_id =', profile.user_id)
 
-      // Use a simpler approach - get all tasks first, then filter
-      const { data: allTasks, error: allTasksError } = await supabase
+      // Use direct query instead of fetching all tasks
+      const { data: tasks, error: tasksError } = await supabase
         .from('tasks')
         .select('*')
+        .eq('user_id', profile.user_id)
         .order('created_at', { ascending: false })
 
-      if (allTasksError) {
-        console.error('Error fetching all tasks for my tasks:', allTasksError)
-        throw allTasksError
+      if (tasksError) {
+        console.error('Error fetching my tasks:', tasksError)
+        throw tasksError
       }
 
-      // Filter to get tasks created by this user
-      const data = allTasks?.filter(task => task.user_id === profile.user_id) || []
-      console.log('My tasks count:', data.length, 'out of', allTasks?.length || 0)
-      console.log('My tasks query result:', { data: data?.length, error: null })
+      console.log('My tasks count:', tasks?.length || 0)
+      console.log('My tasks query result:', { data: tasks?.length || 0, error: null })
+
+      if (!tasks || tasks.length === 0) {
+        console.log('No tasks found for user')
+        return []
+      }
 
       // Get tasker names and category names separately if any tasks have taskers
-      const taskerIds = data.filter(task => task.tasker_id).map(task => task.tasker_id);
-      const categoryIds = [...new Set(data.map(task => task.category_id))];
+      const taskerIds = tasks.filter(task => task.tasker_id).map(task => task.tasker_id);
+      const categoryIds = [...new Set(tasks.map(task => task.category_id))];
       const taskerMap = await this.getProfileNames(taskerIds);
       const categoryMap = await this.getCategoryNames(categoryIds);
 
-      const mappedTasks = data.map(task => ({
+      const mappedTasks = tasks.map(task => ({
         ...task,
         tasker_name: task.tasker_id ? taskerMap.get(task.tasker_id) || 'Unknown' : '',
         category_name: categoryMap.get(task.category_id) || 'Other',
@@ -710,8 +716,8 @@ export class TaskService {
 
       // Validate status transition
       const validTransitions: Record<string, string[]> = {
-        'draft': ['published', 'cancelled'],
-        'published': ['assigned', 'cancelled'],
+        'draft': ['open', 'cancelled'],
+        'open': ['assigned', 'cancelled'],
         'assigned': ['in_progress', 'cancelled'],
         'in_progress': ['completed', 'cancelled'],
         'completed': [], // Terminal state
@@ -724,8 +730,8 @@ export class TaskService {
       }
 
       // Check permissions
-      if (status === 'published' && currentTask.customer_id !== updatedBy) {
-        throw new Error('Only task owner can publish tasks')
+      if (status === 'open' && currentTask.customer_id !== updatedBy) {
+        throw new Error('Only task owner can open tasks')
       }
       if (status === 'assigned' && currentTask.customer_id !== updatedBy) {
         throw new Error('Only task owner can assign tasks')
@@ -743,7 +749,7 @@ export class TaskService {
       }
 
       // Set specific timestamps based on status
-      if (status === 'published') {
+      if (status === 'open') {
         updateData.published_at = new Date().toISOString()
         // Set expiration date (default 30 days from now)
         updateData.expires_at = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
@@ -770,53 +776,186 @@ export class TaskService {
     }
   }
 
-  // Complete a task (with proper workflow)
+  // Complete a task (OPTIMIZED VERSION)
   static async completeTask(taskId: string, completedBy: string, notes?: string): Promise<boolean> {
     try {
-      // Get task details
+      console.log('🚀 OPTIMIZED TASK COMPLETION - Starting for task:', taskId)
+      
+      // Get task details in a single query
       const { data: task, error: taskError } = await supabase
         .from('tasks')
-        .select('id, title, customer_id, tasker_id, status')
+        .select('id, title, customer_id, tasker_id, status, final_price, budget')
         .eq('id', taskId)
         .single()
 
       if (taskError || !task) {
+        console.error('❌ Task not found:', taskError)
         throw new Error('Task not found')
       }
 
       // Check if task can be completed
       if (task.status !== 'in_progress' && task.status !== 'assigned') {
+        console.error('❌ Task cannot be completed, current status:', task.status)
         throw new Error('Task must be in progress to be completed')
       }
 
-      // Update task status
-      const { error: updateError } = await supabase
-        .from('tasks')
-        .update({
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', taskId)
+      console.log('✅ Task validation passed, proceeding with completion')
 
-      if (updateError) throw updateError
+      // Execute all operations in parallel for better performance
+      const operations = await Promise.allSettled([
+        // 1. Update task status
+        supabase
+          .from('tasks')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', taskId),
 
-      // Delete chat and all messages for this task when completed
-      try {
-        const { ChatService } = await import('./ChatService')
-        const chatDeleted = await ChatService.deleteChatByTaskId(taskId)
-        if (chatDeleted) {
-          console.log('✅ Chat deleted successfully for completed task:', taskId)
-        }
-      } catch (chatError) {
-        console.error('Error deleting chat for completed task:', chatError)
-        // Don't fail the main operation if chat deletion fails
+        // 2. Delete chat and messages (non-blocking)
+        this.deleteChatForCompletedTask(taskId),
+
+        // 3. Create payment requirement if needed
+        this.createPaymentForCompletedTask(task),
+
+        // 4. Send completion notifications
+        this.sendCompletionNotifications(task, completedBy)
+      ])
+
+      // Check if the main task update succeeded
+      const taskUpdateResult = operations[0]
+      if (taskUpdateResult.status === 'rejected') {
+        console.error('❌ Failed to update task status:', taskUpdateResult.reason)
+        throw taskUpdateResult.reason
       }
 
+      console.log('✅ Task completion successful:', taskId)
       return true
+
     } catch (error) {
-      console.error('Error completing task:', error)
+      console.error('❌ Error completing task:', error)
       return false
+    }
+  }
+
+  // Helper method to delete chat for completed task
+  private static async deleteChatForCompletedTask(taskId: string): Promise<void> {
+    try {
+      console.log('🗑️ Deleting chat for completed task:', taskId)
+      
+      // Find chat for this task
+      const { data: chat, error: findError } = await supabase
+        .from('chats')
+        .select('id')
+        .eq('task_id', taskId)
+        .maybeSingle()
+
+      if (findError) {
+        console.error('Error finding chat:', findError)
+        return
+      }
+
+      if (!chat) {
+        console.log('ℹ️ No chat found for task:', taskId)
+        return
+      }
+
+      // Delete messages and chat in parallel
+      const [messagesResult, chatResult] = await Promise.allSettled([
+        supabase
+          .from('messages_new')
+          .delete()
+          .eq('chat_id', chat.id),
+        supabase
+          .from('chats')
+          .delete()
+          .eq('id', chat.id)
+      ])
+
+      if (messagesResult.status === 'rejected') {
+        console.error('Error deleting messages:', messagesResult.reason)
+      }
+      if (chatResult.status === 'rejected') {
+        console.error('Error deleting chat:', chatResult.reason)
+      }
+
+      if (messagesResult.status === 'fulfilled' && chatResult.status === 'fulfilled') {
+        console.log('✅ Chat and messages deleted successfully for task:', taskId)
+      }
+
+    } catch (error) {
+      console.error('Error in deleteChatForCompletedTask:', error)
+    }
+  }
+
+  // Helper method to create payment for completed task
+  private static async createPaymentForCompletedTask(task: any): Promise<void> {
+    try {
+      if (!task.tasker_id) {
+        console.log('ℹ️ No tasker assigned, skipping payment creation')
+        return
+      }
+
+      const paymentAmount = task.final_price || task.budget
+      if (!paymentAmount) {
+        console.log('ℹ️ No payment amount, skipping payment creation')
+        return
+      }
+
+      console.log('💰 Creating payment requirement for task:', task.id)
+
+      // Import PaymentService dynamically to avoid circular dependencies
+      const { PaymentService } = await import('./PaymentService')
+      
+      await PaymentService.createTaskPayment(
+        task.id,
+        task.customer_id,
+        paymentAmount,
+        `Payment for completed task: ${task.title}`
+      )
+
+      console.log('✅ Payment requirement created successfully')
+
+    } catch (error) {
+      console.error('Error creating payment for completed task:', error)
+    }
+  }
+
+  // Helper method to send completion notifications
+  private static async sendCompletionNotifications(task: any, completedBy: string): Promise<void> {
+    try {
+      console.log('📢 Sending completion notifications for task:', task.id)
+
+      // Import notification services dynamically
+      const { UnifiedNotificationService } = await import('./UnifiedNotificationService')
+
+      // Notify customer
+      if (task.customer_id !== completedBy) {
+        await UnifiedNotificationService.createNotification(
+          task.customer_id,
+          'Task Completed',
+          `Task "${task.title}" has been completed by the tasker.`,
+          'task',
+          { task_id: task.id, action: 'task_completed' }
+        )
+      }
+
+      // Notify tasker
+      if (task.tasker_id && task.tasker_id !== completedBy) {
+        await UnifiedNotificationService.createNotification(
+          task.tasker_id,
+          'Task Completed',
+          `You have successfully completed task "${task.title}".`,
+          'task',
+          { task_id: task.id, action: 'task_completed' }
+        )
+      }
+
+      console.log('✅ Completion notifications sent successfully')
+
+    } catch (error) {
+      console.error('Error sending completion notifications:', error)
     }
   }
 
@@ -1050,7 +1189,11 @@ export class TaskService {
 
       // Calculate average rating
       const ratings = allTasks
-        .map(t => t.customer_rating || t.tasker_rating)
+        .map(t => {
+          const customerTask = t as any
+          const taskerTask = t as any
+          return customerTask.customer_rating || taskerTask.tasker_rating || 0
+        })
         .filter(r => r && r > 0)
       
       if (ratings.length > 0) {

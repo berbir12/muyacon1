@@ -66,23 +66,23 @@ export default function Profile() {
   // Show loading while auth is being determined
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+      <View style={styles.container}>
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} bounces={false} alwaysBounceVertical={false} overScrollMode="never">
           <SkeletonCard style={styles.profileSkeleton} />
           <SkeletonCard style={styles.statsSkeleton} />
           <SkeletonCard style={styles.actionsSkeleton} />
         </ScrollView>
-      </SafeAreaView>
+      </View>
     )
   }
 
   if (!isAuthenticated || !user) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
+      <View style={styles.loadingContainer}>
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>Please log in to view your profile</Text>
         </View>
-      </SafeAreaView>
+      </View>
     )
   }
 
@@ -189,10 +189,10 @@ export default function Profile() {
         router.push('/notifications')
         break
       case 'help':
-        Alert.alert('Help & Support', 'For support, please contact us at support@muyacon.com')
+        Alert.alert('Help & Support', 'For support, please contact us at support@mescott.com')
         break
       case 'about':
-        Alert.alert('About Muyacon', 'Version 1.0.0\nYour trusted marketplace for local services')
+        Alert.alert('About Mescott', 'Version 1.0.0\nYour trusted marketplace for local services')
         break
       default:
         break
@@ -251,7 +251,7 @@ export default function Profile() {
   ]
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
@@ -264,7 +264,14 @@ export default function Profile() {
         </View>
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.scrollView} 
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false} 
+        bounces={false} 
+        alwaysBounceVertical={false} 
+        overScrollMode="never"
+      >
         {/* Profile Card */}
         <View style={styles.profileCard}>
           <View style={styles.profileHeader}>
@@ -399,7 +406,7 @@ export default function Profile() {
 
         {/* App Info */}
         <View style={styles.appInfoSection}>
-          <Text style={styles.appName}>Muyacon</Text>
+          <Text style={styles.appName}>Mescott</Text>
           <Text style={styles.appVersion}>Version 1.0.0</Text>
           <Text style={styles.appDescription}>
             Your trusted marketplace for local services
@@ -415,7 +422,7 @@ export default function Profile() {
         {/* Bottom Spacing */}
         <View style={styles.bottomSpacing} />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   )
 }
 
@@ -426,6 +433,10 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingTop: 8, // Small padding to prevent dragging from top safe area
+    paddingBottom: 20,
   },
   header: {
     backgroundColor: Colors.background.primary,

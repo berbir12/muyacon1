@@ -111,7 +111,7 @@ export default function AdvancedSearch({
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false} bounces={false} alwaysBounceVertical={false} overScrollMode="never">
           {/* Search Query */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Search Terms</Text>
@@ -128,7 +128,7 @@ export default function AdvancedSearch({
           {searchData?.categories && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Category</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} bounces={false} alwaysBounceVertical={false} overScrollMode="never">
                 {searchData.categories.map((category: any) => (
                   <TouchableOpacity
                     key={category.id}
@@ -199,7 +199,7 @@ export default function AdvancedSearch({
           {searchData?.statuses && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Status</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} bounces={false} alwaysBounceVertical={false} overScrollMode="never">
                 {searchData.statuses.map((status: any) => (
                   <TouchableOpacity
                     key={status.value}

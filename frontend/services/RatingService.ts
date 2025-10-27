@@ -114,38 +114,141 @@ export class RatingService {
     }
   }
 
-  // Update task status after rating is submitted
+  // Update task status after rating is submitted (OPTIMIZED VERSION)
   static async updateTaskAfterRating(taskId: string): Promise<boolean> {
     try {
-      const { error } = await supabase
+      console.log('🚀 OPTIMIZED RATING COMPLETION - Starting for task:', taskId)
+      
+      // Get task details
+      const { data: task, error: taskError } = await supabase
         .from('tasks')
-        .update({
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
+        .select('id, title, customer_id, tasker_id, status, final_price, budget')
         .eq('id', taskId)
+        .single()
 
-      if (error) throw error
-
-      // Delete chat and all messages for this task when completed
-      try {
-        const { ChatService } = await import('./ChatService')
-        const chatDeleted = await ChatService.deleteChatByTaskId(taskId)
-        if (chatDeleted) {
-          console.log('✅ Chat deleted successfully for completed task after rating:', taskId)
-        }
-      } catch (chatError) {
-        console.error('Error deleting chat for completed task after rating:', chatError)
-        // Don't fail the main operation if chat deletion fails
+      if (taskError || !task) {
+        console.error('❌ Task not found for rating completion:', taskError)
+        throw new Error('Task not found')
       }
 
+      console.log('✅ Task validation passed, proceeding with rating completion')
+
+      // Execute all operations in parallel for better performance
+      const operations = await Promise.allSettled([
+        // 1. Update task status
+        supabase
+          .from('tasks')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', taskId),
+
+        // 2. Delete chat and messages (non-blocking)
+        this.deleteChatForCompletedTask(taskId),
+
+        // 3. Create payment requirement if needed
+        this.createPaymentForCompletedTask(task)
+      ])
+
+      // Check if the main task update succeeded
+      const taskUpdateResult = operations[0]
+      if (taskUpdateResult.status === 'rejected') {
+        console.error('❌ Failed to update task status after rating:', taskUpdateResult.reason)
+        throw taskUpdateResult.reason
+      }
+
+      console.log('✅ Task rating completion successful:', taskId)
       return true
 
     } catch (error) {
       const appError = handleError(error, 'updateTaskAfterRating')
-      console.error('Error updating task after rating:', appError)
+      console.error('❌ Error updating task after rating:', appError)
       return false
+    }
+  }
+
+  // Helper method to delete chat for completed task (reused from TaskService)
+  private static async deleteChatForCompletedTask(taskId: string): Promise<void> {
+    try {
+      console.log('🗑️ Deleting chat for completed task after rating:', taskId)
+      
+      // Find chat for this task
+      const { data: chat, error: findError } = await supabase
+        .from('chats')
+        .select('id')
+        .eq('task_id', taskId)
+        .maybeSingle()
+
+      if (findError) {
+        console.error('Error finding chat:', findError)
+        return
+      }
+
+      if (!chat) {
+        console.log('ℹ️ No chat found for task:', taskId)
+        return
+      }
+
+      // Delete messages and chat in parallel
+      const [messagesResult, chatResult] = await Promise.allSettled([
+        supabase
+          .from('messages_new')
+          .delete()
+          .eq('chat_id', chat.id),
+        supabase
+          .from('chats')
+          .delete()
+          .eq('id', chat.id)
+      ])
+
+      if (messagesResult.status === 'rejected') {
+        console.error('Error deleting messages:', messagesResult.reason)
+      }
+      if (chatResult.status === 'rejected') {
+        console.error('Error deleting chat:', chatResult.reason)
+      }
+
+      if (messagesResult.status === 'fulfilled' && chatResult.status === 'fulfilled') {
+        console.log('✅ Chat and messages deleted successfully for task after rating:', taskId)
+      }
+
+    } catch (error) {
+      console.error('Error in deleteChatForCompletedTask:', error)
+    }
+  }
+
+  // Helper method to create payment for completed task (reused from TaskService)
+  private static async createPaymentForCompletedTask(task: any): Promise<void> {
+    try {
+      if (!task.tasker_id) {
+        console.log('ℹ️ No tasker assigned, skipping payment creation')
+        return
+      }
+
+      const paymentAmount = task.final_price || task.budget
+      if (!paymentAmount) {
+        console.log('ℹ️ No payment amount, skipping payment creation')
+        return
+      }
+
+      console.log('💰 Creating payment requirement for task after rating:', task.id)
+
+      // Import PaymentService dynamically to avoid circular dependencies
+      const { PaymentService } = await import('./PaymentService')
+      
+      await PaymentService.createTaskPayment(
+        task.id,
+        task.customer_id,
+        paymentAmount,
+        `Payment for completed task: ${task.title}`
+      )
+
+      console.log('✅ Payment requirement created successfully after rating')
+
+    } catch (error) {
+      console.error('Error creating payment for completed task after rating:', error)
     }
   }
 

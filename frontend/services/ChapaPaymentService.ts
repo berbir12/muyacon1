@@ -165,7 +165,7 @@ export class ChapaPaymentService {
         phone_number: customerInfo.phone.replace(/\s+/g, ''), // Remove spaces from phone
         tx_ref: txRef,
         callback_url: 'https://mchapaw-n0utcbuab-bereket-birhanu-kinfus-projects.vercel.app/api/webhook',
-        return_url: 'https://muyacon.com/payment-success',
+        return_url: 'https://mescott.com/payment-success',
         customization: {
           title: CHAPA_CONFIG.companyName,
           description: 'Payment for task completion',

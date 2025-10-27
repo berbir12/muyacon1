@@ -13,14 +13,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
-import * as SplashScreen from 'expo-splash-screen'
 import { useAuth } from '../contexts/SimpleAuthContext'
 import { useNotifications } from '../contexts/NotificationContext'
 import { TaskService, Task } from '../services/TaskService'
 import Colors from '../constants/Colors'
 
-// Keep the splash screen visible while we fetch resources
-SplashScreen.preventAutoHideAsync()
+// Splash screen is handled in _layout.tsx
 
 const { width } = Dimensions.get('window')
 
@@ -120,12 +118,7 @@ export default function Index() {
     loadTasks()
   }, [user])
 
-  // Hide splash screen when app is ready
-  useEffect(() => {
-    if (!isLoading) {
-      SplashScreen.hideAsync()
-    }
-  }, [isLoading])
+  // Splash screen is handled in _layout.tsx
   
   if (isLoading) {
     return null // Let the native splash screen show
@@ -153,54 +146,58 @@ export default function Index() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
+      {/* Fixed Header Section */}
+      <View style={styles.header}>
+        <View style={styles.headerTop}>
+          <View style={styles.greetingContainer}>
+            <Text style={styles.greeting}>Good {getGreeting()}</Text>
+            <Text style={styles.userName}>
+              {user ? `Welcome back, ${user.full_name.split(' ')[0]}!` : 'Welcome to Mescott!'}
+            </Text>
+          </View>
+          <View style={styles.headerButtons}>
+            <TouchableOpacity 
+              style={styles.notificationButton}
+              onPress={() => router.push('/notifications')}
+            >
+              <Ionicons name="notifications-outline" size={22} color={Colors.neutral[600]} />
+              {unreadCount > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationCount}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={20} color={Colors.neutral[400]} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search for services..."
+            placeholderTextColor={Colors.neutral[400]}
+          />
+          <TouchableOpacity style={styles.filterButton}>
+            <Ionicons name="options-outline" size={20} color={Colors.primary[500]} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Scrollable Content */}
       <ScrollView 
         style={styles.scrollView} 
         showsVerticalScrollIndicator={true}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.scrollContent}
-        bounces={true}
+        bounces={false}
+        alwaysBounceVertical={false}
+        overScrollMode="never"
         scrollEventThrottle={16}
       >
-        {/* Header Section */}
-        <View style={styles.header}>
-          <View style={styles.headerTop}>
-            <View style={styles.greetingContainer}>
-              <Text style={styles.greeting}>Good {getGreeting()}</Text>
-              <Text style={styles.userName}>
-                {user ? `Welcome back, ${user.full_name.split(' ')[0]}!` : 'Welcome to Muyacon!'}
-              </Text>
-            </View>
-            <View style={styles.headerButtons}>
-              <TouchableOpacity 
-                style={styles.notificationButton}
-                onPress={() => router.push('/notifications')}
-              >
-                <Ionicons name="notifications-outline" size={22} color={Colors.neutral[600]} />
-                {unreadCount > 0 && (
-                  <View style={styles.notificationBadge}>
-                    <Text style={styles.notificationCount}>
-                      {unreadCount > 99 ? '99+' : unreadCount}
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Search Bar */}
-          <View style={styles.searchContainer}>
-            <Ionicons name="search" size={20} color={Colors.neutral[400]} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search for services..."
-              placeholderTextColor={Colors.neutral[400]}
-            />
-            <TouchableOpacity style={styles.filterButton}>
-              <Ionicons name="options-outline" size={20} color={Colors.primary[500]} />
-            </TouchableOpacity>
-          </View>
-        </View>
 
         {/* Quick Actions */}
         <View style={styles.quickActionsSection}>
@@ -359,7 +356,7 @@ export default function Index() {
 
         {/* How It Works */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>How Muyacon Works</Text>
+            <Text style={styles.sectionTitle}>How Mescott Works</Text>
           <View style={styles.stepsContainer}>
             {[
               { number: '1', title: 'Post a Task', description: 'Tell us what you need done, when and where.' },
@@ -383,7 +380,7 @@ export default function Index() {
         {/* Bottom Spacing */}
         <View style={styles.bottomSpacing} />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   )
 }
 
@@ -396,6 +393,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
+    paddingTop: 8, // Small padding to prevent dragging from top safe area
     paddingBottom: 5,
   },
   header: {

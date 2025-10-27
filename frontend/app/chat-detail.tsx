@@ -58,15 +58,12 @@ export default function ChatDetail() {
   const [sending, setSending] = useState(false)
   const [booking, setBooking] = useState<any>(null)
   const [participantName, setParticipantName] = useState<string>(otherUserName || 'Unknown')
-  const [isTyping, setIsTyping] = useState(false)
   const [isOnline, setIsOnline] = useState(false)
   const [lastSeen, setLastSeen] = useState<string>('')
   const [isSubscribed, setIsSubscribed] = useState(false)
-  const [otherUserTyping, setOtherUserTyping] = useState(false)
   const [otherUserOnline, setOtherUserOnline] = useState(false)
   
   const scrollViewRef = useRef<ScrollView>(null)
-  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -130,11 +127,6 @@ export default function ChatDetail() {
           setTimeout(() => {
             scrollViewRef.current?.scrollToEnd({ animated: true })
           }, 100)
-        },
-        onTyping: (userId, typing) => {
-          if (userId !== user?.id) {
-            setOtherUserTyping(typing)
-          }
         },
         onUserOnline: (userId, online) => {
           if (userId !== user?.id) {
@@ -321,30 +313,6 @@ export default function ChatDetail() {
     }
   }
 
-  const handleTyping = (text: string) => {
-    setNewMessage(text)
-    
-    // Clear existing timeout
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current)
-    }
-    
-    // Set typing indicator
-    setIsTyping(true)
-    
-    // Send typing indicator to other user
-    if (chatId) {
-      ChatService.sendTypingIndicator(chatId, true)
-    }
-    
-    // Clear typing indicator after 2 seconds of no typing
-    typingTimeoutRef.current = setTimeout(() => {
-      setIsTyping(false)
-      if (chatId) {
-        ChatService.sendTypingIndicator(chatId, false)
-      }
-    }, 2000)
-  }
 
   const scrollToBottom = () => {
     setTimeout(() => {
@@ -573,6 +541,9 @@ export default function ChatDetail() {
           contentContainerStyle={styles.messagesContent}
           showsVerticalScrollIndicator={false}
           onContentSizeChange={scrollToBottom}
+          bounces={false}
+          alwaysBounceVertical={false}
+          overScrollMode="never"
         >
           {messages.length === 0 ? (
             <View style={styles.emptyState}>
@@ -657,31 +628,6 @@ export default function ChatDetail() {
             })
           )}
           
-          {/* Typing Indicators */}
-          {isTyping && (
-            <View style={styles.typingIndicator}>
-              <View style={styles.typingBubble}>
-                <View style={styles.typingDots}>
-                  <View style={[styles.typingDot, styles.typingDot1]} />
-                  <View style={[styles.typingDot, styles.typingDot2]} />
-                  <View style={[styles.typingDot, styles.typingDot3]} />
-                </View>
-              </View>
-            </View>
-          )}
-          
-          {otherUserTyping && (
-            <View style={[styles.typingIndicator, styles.otherTypingIndicator]}>
-              <View style={styles.otherTypingBubble}>
-                <Text style={styles.typingText}>{participantName} is typing...</Text>
-                <View style={styles.typingDots}>
-                  <View style={[styles.typingDot, styles.typingDot1]} />
-                  <View style={[styles.typingDot, styles.typingDot2]} />
-                  <View style={[styles.typingDot, styles.typingDot3]} />
-                </View>
-              </View>
-            </View>
-          )}
         </ScrollView>
 
         {/* Modern Input Area */}
@@ -698,7 +644,7 @@ export default function ChatDetail() {
               <TextInput
                 style={styles.messageInput}
                 value={newMessage}
-                onChangeText={handleTyping}
+                onChangeText={setNewMessage}
                 placeholder="Message"
                 placeholderTextColor={Colors.neutral[400]}
                 multiline
@@ -822,7 +768,7 @@ const styles = StyleSheet.create({
   },
   messagesContent: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingTop: 8, // Small padding to prevent dragging from top safe area
     paddingBottom: 20,
   },
   
@@ -948,64 +894,6 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   
-  // Typing Indicator Styles
-  typingIndicator: {
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    marginBottom: 8,
-    paddingHorizontal: 4,
-  },
-  typingBubble: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 20,
-    borderBottomLeftRadius: 4,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  typingDots: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  typingDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Colors.neutral[400],
-    marginHorizontal: 2,
-  },
-  typingDot1: {
-    animationDelay: '0s',
-  },
-  typingDot2: {
-    animationDelay: '0.2s',
-  },
-  typingDot3: {
-    animationDelay: '0.4s',
-  },
-  otherTypingIndicator: {
-    justifyContent: 'flex-start',
-  },
-  otherTypingBubble: {
-    backgroundColor: Colors.neutral[100],
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 20,
-    borderBottomLeftRadius: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    maxWidth: screenWidth * 0.7,
-  },
-  typingText: {
-    fontSize: 12,
-    color: Colors.neutral[600],
-    marginRight: 8,
-    fontStyle: 'italic',
-  },
   
   // Input Area Styles
   inputArea: {

@@ -17,6 +17,7 @@ export default function TaskApplications() {
   const [loading, setLoading] = useState(true)
   const [profileModalVisible, setProfileModalVisible] = useState(false)
   const [selectedTaskerId, setSelectedTaskerId] = useState<string | null>(null)
+  const [processingApplication, setProcessingApplication] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -66,12 +67,19 @@ export default function TaskApplications() {
         {
           text: 'Accept',
           onPress: async () => {
-            const success = await TaskApplicationService.acceptApplication(taskId as string, applicationId)
-            if (success) {
-              Alert.alert('Success', 'Application accepted successfully!')
-              loadApplications()
-            } else {
-              Alert.alert('Error', 'Failed to accept application')
+            setProcessingApplication(applicationId)
+            try {
+              const success = await TaskApplicationService.acceptApplication(taskId as string, applicationId)
+              if (success) {
+                Alert.alert('Success', 'Application accepted successfully!')
+                loadApplications()
+              } else {
+                Alert.alert('Error', 'Failed to accept application')
+              }
+            } catch (error) {
+              Alert.alert('Error', 'An error occurred while accepting the application')
+            } finally {
+              setProcessingApplication(null)
             }
           }
         }
@@ -89,12 +97,19 @@ export default function TaskApplications() {
           text: 'Reject',
           style: 'destructive',
           onPress: async () => {
-            const success = await TaskApplicationService.rejectApplication(applicationId)
-            if (success) {
-              Alert.alert('Success', 'Application rejected successfully!')
-              loadApplications()
-            } else {
-              Alert.alert('Error', 'Failed to reject application')
+            setProcessingApplication(applicationId)
+            try {
+              const success = await TaskApplicationService.rejectApplication(applicationId)
+              if (success) {
+                Alert.alert('Success', 'Application rejected successfully!')
+                loadApplications()
+              } else {
+                Alert.alert('Error', 'Failed to reject application')
+              }
+            } catch (error) {
+              Alert.alert('Error', 'An error occurred while rejecting the application')
+            } finally {
+              setProcessingApplication(null)
             }
           }
         }
@@ -173,7 +188,14 @@ export default function TaskApplications() {
         <View style={styles.placeholder} />
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={true}>
+      <ScrollView 
+        style={styles.content} 
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={true} 
+        bounces={false} 
+        alwaysBounceVertical={false} 
+        overScrollMode="never"
+      >
         {applications.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="document-text-outline" size={64} color={Colors.neutral[300]} />
@@ -189,9 +211,16 @@ export default function TaskApplications() {
                 <View style={styles.applicationHeader}>
                   <View style={styles.taskerInfo}>
                     <View style={styles.avatar}>
-                      <Text style={styles.avatarText}>
-                        {application.tasker_name?.charAt(0)?.toUpperCase() || 'T'}
-                      </Text>
+                      {application.tasker_avatar ? (
+                        <Image
+                          source={{ uri: application.tasker_avatar }}
+                          style={styles.avatarImage}
+                        />
+                      ) : (
+                        <Text style={styles.avatarText}>
+                          {application.tasker_name?.charAt(0)?.toUpperCase() || 'T'}
+                        </Text>
+                      )}
                     </View>
                     <View style={styles.taskerDetails}>
                       <Text style={styles.taskerName}>{application.tasker_name || 'Unknown Tasker'}</Text>
@@ -235,18 +264,32 @@ export default function TaskApplications() {
                 {application.status === 'pending' && (
                   <View style={styles.actionButtons}>
                     <TouchableOpacity
-                      style={styles.rejectButton}
+                      style={[styles.rejectButton, processingApplication === application.id && styles.processingButton]}
                       onPress={() => handleRejectApplication(application.id)}
+                      disabled={processingApplication === application.id}
                     >
-                      <Ionicons name="close" size={16} color={Colors.error[500]} />
-                      <Text style={styles.rejectButtonText}>Reject</Text>
+                      {processingApplication === application.id ? (
+                        <ActivityIndicator size="small" color={Colors.error[500]} />
+                      ) : (
+                        <Ionicons name="close" size={16} color={Colors.error[500]} />
+                      )}
+                      <Text style={styles.rejectButtonText}>
+                        {processingApplication === application.id ? 'Rejecting...' : 'Reject'}
+                      </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                      style={styles.acceptButton}
+                      style={[styles.acceptButton, processingApplication === application.id && styles.processingButton]}
                       onPress={() => handleAcceptApplication(application.id)}
+                      disabled={processingApplication === application.id}
                     >
-                      <Ionicons name="checkmark" size={16} color="#fff" />
-                      <Text style={styles.acceptButtonText}>Accept</Text>
+                      {processingApplication === application.id ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <Ionicons name="checkmark" size={16} color="#fff" />
+                      )}
+                      <Text style={styles.acceptButtonText}>
+                        {processingApplication === application.id ? 'Accepting...' : 'Accept'}
+                      </Text>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -294,6 +337,10 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingTop: 8, // Small padding to prevent dragging from top safe area
+    paddingBottom: 20,
   },
   loadingContainer: {
     flex: 1,
@@ -367,6 +414,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: '#fff',
+  },
+  avatarImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
   },
   taskerDetails: {
     flex: 1,
@@ -476,5 +528,8 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: Colors.primary[500],
     marginLeft: 6,
+  },
+  processingButton: {
+    opacity: 0.7,
   },
 })

@@ -10,19 +10,16 @@ export interface RealtimeMessage extends Message {
 export interface ChatSubscription {
   chatId: string
   onMessage: (message: RealtimeMessage) => void
-  onTyping: (userId: string, isTyping: boolean) => void
   onUserOnline: (userId: string, isOnline: boolean) => void
 }
 
 export class RealtimeChatService {
   private static channels: Map<string, RealtimeChannel> = new Map()
-  private static typingUsers: Map<string, Set<string>> = new Map()
   private static onlineUsers: Set<string> = new Set()
 
   // Subscribe to a chat for real-time updates
   static async subscribeToChat(chatId: string, callbacks: {
     onMessage: (message: RealtimeMessage) => void
-    onTyping?: (userId: string, isTyping: boolean) => void
     onUserOnline?: (userId: string, isOnline: boolean) => void
   }): Promise<RealtimeChannel | null> {
     try {

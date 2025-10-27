@@ -258,79 +258,145 @@ export class TaskApplicationService {
     }
   }
 
-  // Accept an application (and assign task to tasker)
+  // Accept an application (and assign task to tasker) - OPTIMIZED VERSION
   static async acceptApplication(taskId: string, applicationId: string): Promise<boolean> {
     try {
-      // Get application details
+      // Get application details with task info in one query
       const { data: application, error: fetchError } = await supabase
         .from('task_applications')
-        .select('task_id, tasker_id')
+        .select(`
+          tasker_id,
+          proposed_price,
+          task_id,
+          tasks!inner(
+            id,
+            title,
+            customer_id,
+            status
+          )
+        `)
         .eq('id', applicationId)
         .single()
 
       if (fetchError) throw fetchError
 
-      // Update application status
-      const success = await this.updateApplicationStatus(applicationId, 'accepted')
-      if (!success) return false
+      const taskData = application.tasks as any
 
-      // Update task with assigned tasker
-      const { error: taskError } = await supabase
-        .from('tasks')
-        .update({
-          tasker_id: application.tasker_id,
-          status: 'assigned',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', application.task_id)
+      // Execute all database operations in parallel
+      const [updateAppResult, updateTaskResult, rejectOthersResult] = await Promise.all([
+        // Update application status
+        supabase
+          .from('task_applications')
+          .update({
+            status: 'accepted',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', applicationId),
+        
+        // Update task with assigned tasker
+        supabase
+          .from('tasks')
+          .update({
+            tasker_id: application.tasker_id,
+            status: 'assigned',
+            final_price: application.proposed_price,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', application.task_id),
+        
+        // Reject all other applications for this task
+        supabase
+          .from('task_applications')
+          .update({
+            status: 'rejected',
+            updated_at: new Date().toISOString()
+          })
+          .eq('task_id', application.task_id)
+          .neq('id', applicationId)
+      ])
 
-      if (taskError) throw taskError
+      // Check for errors
+      if (updateAppResult.error) throw updateAppResult.error
+      if (updateTaskResult.error) throw updateTaskResult.error
+      if (rejectOthersResult.error) throw rejectOthersResult.error
 
-      // Reject all other applications for this task
-      await supabase
-        .from('task_applications')
-        .update({
-          status: 'rejected',
-          updated_at: new Date().toISOString()
-        })
-        .eq('task_id', application.task_id)
-        .neq('id', applicationId)
+      // Execute notifications and chat creation in parallel (non-blocking)
+      Promise.all([
+        // Create chat between customer and tasker
+        this.createChatForAcceptedApplication(application.task_id, application.tasker_id),
+        
+        // Send notifications
+        this.sendAcceptanceNotifications(application.task_id, application.tasker_id, taskData.title, taskData.customer_id)
+      ]).catch(error => {
+        console.error('Error in background operations:', error)
+        // Don't fail the main operation if notifications fail
+      })
 
-      // Create a chat between customer and tasker
+      // Also create chat synchronously to ensure it's available immediately
       await this.createChatForAcceptedApplication(application.task_id, application.tasker_id)
-
-      // Get task and customer details for notification
-      const { data: task } = await supabase
-        .from('tasks')
-        .select('title, customer_id')
-        .eq('id', application.task_id)
-        .single()
-
-      const { data: customer } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('id', task?.customer_id)
-        .single()
-
-      // Send notification to tasker
-      await SimpleNotificationService.notifyTaskAccepted(
-        customer?.full_name || 'Customer',
-        task?.title || 'Task',
-        application.task_id
-      )
-      
-      // Also send unified notification
-      await UnifiedNotificationService.notifyApplicationAccepted(
-        application.task_id,
-        task?.title || 'Task',
-        application.tasker_id,
-        customer?.full_name || 'Customer'
-      )
 
       return true
     } catch (error) {
       console.error('Error accepting application:', error)
       return false
+    }
+  }
+
+  // Helper method to send acceptance notifications
+  private static async sendAcceptanceNotifications(taskId: string, taskerId: string, taskTitle: string, customerId: string): Promise<void> {
+    try {
+      // Get customer name
+      const { data: customer } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', customerId)
+        .single()
+
+      // Send notifications in parallel
+      await Promise.all([
+        SimpleNotificationService.notifyTaskAccepted(
+          customer?.full_name || 'Customer',
+          taskTitle,
+          taskId
+        ),
+        UnifiedNotificationService.notifyApplicationAccepted(
+          taskId,
+          taskTitle,
+          taskerId,
+          customer?.full_name || 'Customer'
+        )
+      ])
+    } catch (error) {
+      console.error('Error sending acceptance notifications:', error)
+    }
+  }
+
+  // Helper method to send rejection notifications
+  private static async sendRejectionNotifications(taskId: string, taskerId: string, taskTitle: string, customerId: string): Promise<void> {
+    try {
+      // Get customer name
+      const { data: customer } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', customerId)
+        .single()
+
+      // Send notifications in parallel
+      await Promise.all([
+        SimpleNotificationService.notifyTaskRejected(
+          customer?.full_name || 'Customer',
+          taskTitle,
+          taskId
+        ),
+        UnifiedNotificationService.notifyApplicationRejected(
+          taskId,
+          taskTitle,
+          taskerId,
+          customer?.full_name || 'Customer'
+        )
+      ])
+    } catch (error) {
+      console.error('Error sending rejection notifications:', error)
     }
   }
 
@@ -373,51 +439,51 @@ export class TaskApplicationService {
     }
   }
 
-  // Reject an application
+  // Reject an application - OPTIMIZED VERSION
   static async rejectApplication(applicationId: string): Promise<boolean> {
     try {
-      // Get application details first
+      // Get application details with task info in one query
       const { data: application, error: fetchError } = await supabase
         .from('task_applications')
-        .select('tasker_id, task_id')
+        .select(`
+          tasker_id,
+          task_id,
+          tasks!inner(
+            id,
+            title,
+            customer_id
+          )
+        `)
         .eq('id', applicationId)
         .single()
 
       if (fetchError) throw fetchError
 
-      const success = await this.updateApplicationStatus(applicationId, 'rejected')
-      
-      if (success) {
-        // Get task and customer details for notification
-        const { data: task } = await supabase
-          .from('tasks')
-          .select('title, customer_id')
-          .eq('id', application.task_id)
-          .single()
+      const taskData = application.tasks as any
 
-        const { data: customer } = await supabase
-          .from('profiles')
-          .select('full_name')
-          .eq('id', task?.customer_id)
-          .single()
+      // Update application status
+      const { error: updateError } = await supabase
+        .from('task_applications')
+        .update({
+          status: 'rejected',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', applicationId)
 
-        // Send notification to tasker
-        await SimpleNotificationService.notifyTaskRejected(
-          customer?.full_name || 'Customer',
-          task?.title || 'Task',
-          application.task_id
-        )
-        
-        // Also send unified notification
-        await UnifiedNotificationService.notifyApplicationRejected(
-          application.task_id,
-          task?.title || 'Task',
-          application.tasker_id,
-          customer?.full_name || 'Customer'
-        )
-      }
-      
-      return success
+      if (updateError) throw updateError
+
+      // Send notifications in background (non-blocking)
+      this.sendRejectionNotifications(
+        application.task_id,
+        application.tasker_id,
+        taskData.title,
+        taskData.customer_id
+      ).catch(error => {
+        console.error('Error sending rejection notifications:', error)
+        // Don't fail the main operation if notifications fail
+      })
+
+      return true
     } catch (error) {
       console.error('Error rejecting application:', error)
       return false

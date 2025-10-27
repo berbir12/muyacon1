@@ -16,7 +16,7 @@ import {
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { PaymentMethodService, PaymentMethod } from '../services/PaymentMethodService'
-import { ETHIOPIAN_BANKS, MOBILE_MONEY_PROVIDERS, CASH_PICKUP_LOCATIONS, validateAccountNumber, validatePhoneNumber, formatAccountNumber, formatPhoneNumber } from '../constants/EthiopianBanks'
+import { ETHIOPIAN_BANKS, MOBILE_MONEY_PROVIDERS, validateAccountNumber, validatePhoneNumber, formatAccountNumber, formatPhoneNumber } from '../constants/EthiopianBanks'
 import Colors from '../constants/Colors'
 
 const { width, height } = Dimensions.get('window')
@@ -36,16 +36,14 @@ export default function PaymentMethodModal({
 }: PaymentMethodModalProps) {
   const [loading, setLoading] = useState(false)
   const [step, setStep] = useState<'type' | 'details'>('type')
-  const [selectedType, setSelectedType] = useState<'bank_account' | 'mobile_money' | 'cash_pickup' | null>(null)
+  const [selectedType, setSelectedType] = useState<'bank_account' | 'mobile_money' | null>(null)
   const [selectedBank, setSelectedBank] = useState<string>('')
   const [selectedProvider, setSelectedProvider] = useState<string>('')
-  const [selectedLocation, setSelectedLocation] = useState<string>('')
   const [accountNumber, setAccountNumber] = useState('')
   const [accountHolder, setAccountHolder] = useState('')
   const [phoneNumber, setPhoneNumber] = useState('')
   const [showBankList, setShowBankList] = useState(false)
   const [showProviderList, setShowProviderList] = useState(false)
-  const [showLocationList, setShowLocationList] = useState(false)
   const [isDefault, setIsDefault] = useState(false)
 
   const paymentTypes = [
@@ -65,14 +63,6 @@ export default function PaymentMethodModal({
       color: Colors.success[500],
       description: 'Quick mobile wallet payments'
     },
-    {
-      id: 'cash_pickup',
-      title: 'Cash Pickup',
-      subtitle: 'Pick up cash at location',
-      icon: 'location-outline',
-      color: Colors.warning[500],
-      description: 'Collect cash from designated locations'
-    }
   ]
 
   useEffect(() => {
@@ -86,17 +76,15 @@ export default function PaymentMethodModal({
     setSelectedType(null)
     setSelectedBank('')
     setSelectedProvider('')
-    setSelectedLocation('')
     setAccountNumber('')
     setAccountHolder('')
     setPhoneNumber('')
     setShowBankList(false)
     setShowProviderList(false)
-    setShowLocationList(false)
     setIsDefault(false)
   }
 
-  const handleTypeSelect = (type: 'bank_account' | 'mobile_money' | 'cash_pickup') => {
+  const handleTypeSelect = (type: 'bank_account' | 'mobile_money') => {
     setSelectedType(type)
     setStep('details')
   }
@@ -111,10 +99,6 @@ export default function PaymentMethodModal({
     setShowProviderList(false)
   }
 
-  const handleLocationSelect = (location: string) => {
-    setSelectedLocation(location)
-    setShowLocationList(false)
-  }
 
   const canSave = () => {
     if (!selectedType) return false
@@ -124,8 +108,6 @@ export default function PaymentMethodModal({
         return selectedBank && accountNumber && accountHolder
       case 'mobile_money':
         return selectedProvider && phoneNumber
-      case 'cash_pickup':
-        return selectedLocation
       default:
         return false
     }
@@ -169,12 +151,6 @@ export default function PaymentMethodModal({
       }
     }
 
-    if (selectedType === 'cash_pickup') {
-      if (!selectedLocation) {
-        Alert.alert('Error', 'Please select a pickup location.')
-        return
-      }
-    }
 
     try {
       setLoading(true)
@@ -220,10 +196,6 @@ export default function PaymentMethodModal({
           provider: provider?.name || '',
           provider_id: selectedProvider
         }
-      case 'cash_pickup':
-        return {
-          pickup_location: selectedLocation
-        }
       default:
         return {}
     }
@@ -235,8 +207,6 @@ export default function PaymentMethodModal({
         return accountNumber.slice(-4)
       case 'mobile_money':
         return phoneNumber.slice(-4)
-      case 'cash_pickup':
-        return selectedLocation.slice(0, 4).toUpperCase()
       default:
         return ''
     }
@@ -248,8 +218,6 @@ export default function PaymentMethodModal({
         return ETHIOPIAN_BANKS.find(b => b.id === selectedBank)?.name || 'Bank'
       case 'mobile_money':
         return MOBILE_MONEY_PROVIDERS.find(p => p.id === selectedProvider)?.name || 'Mobile Money'
-      case 'cash_pickup':
-        return 'Cash Pickup'
       default:
         return 'Payment Method'
     }
@@ -327,12 +295,10 @@ export default function PaymentMethodModal({
                   <Text style={styles.sectionTitle}>
                     {selectedType === 'bank_account' && 'Bank Account Information'}
                     {selectedType === 'mobile_money' && 'Mobile Money Details'}
-                    {selectedType === 'cash_pickup' && 'Pickup Location'}
                   </Text>
                   <Text style={styles.sectionSubtitle}>
                     {selectedType === 'bank_account' && 'Enter your bank account details for withdrawals'}
                     {selectedType === 'mobile_money' && 'Add your mobile money account information'}
-                    {selectedType === 'cash_pickup' && 'Choose where you want to pick up your cash'}
                   </Text>
                   
                   {/* No Third-Party Payments Notice */}
@@ -353,7 +319,6 @@ export default function PaymentMethodModal({
                         onPress={() => {
                           setShowBankList(!showBankList)
                           setShowProviderList(false)
-                          setShowLocationList(false)
                         }}
                       >
                         <Text style={[styles.selectText, !selectedBank && styles.placeholder]}>
@@ -420,7 +385,6 @@ export default function PaymentMethodModal({
                         onPress={() => {
                           setShowProviderList(!showProviderList)
                           setShowBankList(false)
-                          setShowLocationList(false)
                         }}
                       >
                         <Text style={[styles.selectText, !selectedProvider && styles.placeholder]}>
@@ -467,49 +431,6 @@ export default function PaymentMethodModal({
                   </View>
                 )}
 
-                {selectedType === 'cash_pickup' && (
-                  <View style={styles.formSection}>
-                    <View style={styles.fieldGroup}>
-                      <Text style={styles.fieldLabel}>Pickup Location *</Text>
-                      <TouchableOpacity
-                        style={[styles.selectField, showLocationList && styles.selectFieldActive]}
-                        onPress={() => {
-                          setShowLocationList(!showLocationList)
-                          setShowBankList(false)
-                          setShowProviderList(false)
-                        }}
-                      >
-                        <Text style={[styles.selectText, !selectedLocation && styles.placeholder]}>
-                          {selectedLocation || 'Select pickup location'}
-                        </Text>
-                        <Ionicons 
-                          name={showLocationList ? 'chevron-up' : 'chevron-down'} 
-                          size={20} 
-                          color={Colors.neutral[500]} 
-                        />
-                      </TouchableOpacity>
-
-                      {showLocationList && (
-                        <View style={styles.dropdownList}>
-                          <ScrollView style={styles.dropdownScroll} showsVerticalScrollIndicator={false}>
-                            {CASH_PICKUP_LOCATIONS.map((location) => (
-                              <TouchableOpacity
-                                key={location}
-                                style={styles.dropdownItem}
-                                onPress={() => handleLocationSelect(location)}
-                              >
-                                <Text style={styles.dropdownItemText}>{location}</Text>
-                                {selectedLocation === location && (
-                                  <Ionicons name="checkmark" size={16} color={Colors.primary[500]} />
-                                )}
-                              </TouchableOpacity>
-                            ))}
-                          </ScrollView>
-                        </View>
-                      )}
-                    </View>
-                  </View>
-                )}
 
                 {/* Default Method Toggle */}
                 <View style={styles.defaultSection}>

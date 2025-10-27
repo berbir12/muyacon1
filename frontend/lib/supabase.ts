@@ -45,7 +45,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
   global: {
     headers: {
-      'X-Client-Info': 'muyacon-app',
+      'X-Client-Info': 'mescott-app',
     },
   },
   db: {

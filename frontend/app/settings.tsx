@@ -316,8 +316,8 @@ export default function Settings() {
 
         {/* App Info */}
         <View style={styles.appInfo}>
-          <Text style={styles.appVersion}>Muyacon v1.0.0</Text>
-          <Text style={styles.appCopyright}>© 2024 Muyacon. All rights reserved.</Text>
+          <Text style={styles.appVersion}>Mescott v1.0.0</Text>
+          <Text style={styles.appCopyright}>© 2024 Mescott. All rights reserved.</Text>
         </View>
       </ScrollView>
     </SafeAreaView>

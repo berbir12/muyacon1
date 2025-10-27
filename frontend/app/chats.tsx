@@ -222,7 +222,7 @@ export default function Chats() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor={Colors.background.primary} />
         <View style={styles.loadingContainer}>
           <View style={styles.loadingContent}>
@@ -233,7 +233,7 @@ export default function Chats() {
             <Text style={styles.loadingSubtitle}>Fetching your conversations...</Text>
           </View>
         </View>
-      </SafeAreaView>
+      </View>
     )
   }
 
@@ -242,7 +242,7 @@ export default function Chats() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.background.primary} />
       
       {/* Header */}
@@ -316,9 +316,12 @@ export default function Chats() {
             />
           }
           showsVerticalScrollIndicator={false}
+          bounces={false}
+          alwaysBounceVertical={false}
+          overScrollMode="never"
         />
       )}
-    </SafeAreaView>
+    </View>
   )
 }
 
@@ -406,6 +409,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   chatsListContent: {
+    paddingTop: 8, // Small padding to prevent dragging from top safe area
     paddingBottom: 20,
   },
   chatItem: {

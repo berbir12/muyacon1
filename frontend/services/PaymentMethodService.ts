@@ -4,7 +4,7 @@ import { EthiopianBank, MobileMoneyProvider, getBankById, getMobileMoneyProvider
 export interface PaymentMethod {
   id: string
   user_id: string
-  type: 'bank_account' | 'mobile_money' | 'cash_pickup'
+  type: 'bank_account' | 'mobile_money'
   last4?: string
   brand?: string
   expiry_month?: number
@@ -54,7 +54,7 @@ export class PaymentMethodService {
   // Add a new payment method
   static async addPaymentMethod(
     userId: string,
-    type: 'bank_account' | 'mobile_money' | 'cash_pickup',
+    type: 'bank_account' | 'mobile_money',
     details: {
       last4?: string
       brand?: string
@@ -67,7 +67,6 @@ export class PaymentMethodService {
         phone_number?: string
         provider?: string
         provider_id?: string
-        pickup_location?: string
         account_holder_name?: string
       }
     }

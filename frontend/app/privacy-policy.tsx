@@ -125,10 +125,10 @@ export default function PrivacyPolicy() {
           <Text style={styles.sectionTitle}>13. Contact Us</Text>
           <Text style={styles.sectionText}>
             If you have any questions about this privacy policy or our data practices, please contact us at:{'\n'}
-            Email: privacy@muyacon.com{'\n'}
+            Email: privacy@mescott.com{'\n'}
             Phone: +251-911-234-567{'\n'}
             Address: Addis Ababa, Ethiopia{'\n'}
-            Website: https://muyacon.com
+            Website: https://mescott.com
           </Text>
         </View>
       </ScrollView>

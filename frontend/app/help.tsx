@@ -56,15 +56,15 @@ const faqData = {
   'getting-started': [
     {
       question: 'How do I create an account?',
-      answer: 'Download the Muyacon app and tap "Sign Up". Enter your phone number, verify it with the SMS code, then complete your profile with your name and basic information.'
+      answer: 'Download the Mescott app and tap "Sign Up". Enter your phone number, verify it with the SMS code, then complete your profile with your name and basic information.'
     },
     {
-      question: 'What can I do on Muyacon?',
-      answer: 'Muyacon is a marketplace where you can either post tasks you need done (as a customer) or offer your services to complete tasks (as a tasker). You can browse services, chat with users, make secure payments, and build your reputation.'
+      question: 'What can I do on Mescott?',
+      answer: 'Mescott is a marketplace where you can either post tasks you need done (as a customer) or offer your services to complete tasks (as a tasker). You can browse services, chat with users, make secure payments, and build your reputation.'
     },
     {
-      question: 'Is Muyacon free to use?',
-      answer: 'Yes, downloading and using Muyacon is completely free. We only charge a small service fee when tasks are completed successfully.'
+      question: 'Is Mescott free to use?',
+      answer: 'Yes, downloading and using Mescott is completely free. We only charge a small service fee when tasks are completed successfully.'
     },
     {
       question: 'How do I switch between customer and tasker mode?',
@@ -86,7 +86,7 @@ const faqData = {
     },
     {
       question: 'What if I forget my password?',
-      answer: 'Muyacon uses phone number verification, so you don\'t need a password. Just enter your phone number and we\'ll send you a verification code.'
+      answer: 'Mescott uses phone number verification, so you don\'t need a password. Just enter your phone number and we\'ll send you a verification code.'
     }
   ],
   'payments': [
@@ -158,11 +158,11 @@ const faqData = {
     },
     {
       question: 'I\'m not receiving notifications. How do I fix this?',
-      answer: 'Go to your phone settings > Apps > Muyacon > Notifications and make sure notifications are enabled. Also check that you\'ve allowed notifications in the app.'
+      answer: 'Go to your phone settings > Apps > Mescott > Notifications and make sure notifications are enabled. Also check that you\'ve allowed notifications in the app.'
     },
     {
       question: 'How do I update the app?',
-      answer: 'Go to your app store (Google Play or App Store), search for Muyacon, and tap "Update" if an update is available.'
+      answer: 'Go to your app store (Google Play or App Store), search for Mescott, and tap "Update" if an update is available.'
     },
     {
       question: 'The app is using too much data. How can I reduce it?',
@@ -178,7 +178,7 @@ export default function HelpScreen() {
   const [expandedFAQ, setExpandedFAQ] = useState<string | null>(null)
 
   const handleContactSupport = () => {
-    Linking.openURL('mailto:support@muyacon.com?subject=Help Request')
+    Linking.openURL('mailto:support@mescott.com?subject=Help Request')
   }
 
   const handleCallSupport = () => {

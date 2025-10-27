@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Animated,
   Pressable,
+  Image,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import Colors from '../constants/Colors'
@@ -242,7 +243,7 @@ export const ProfileCard = ({
     <View style={styles.profileContent}>
       <View style={styles.profileAvatar}>
         {avatar ? (
-          <View style={styles.avatarImage} />
+          <Image source={{ uri: avatar }} style={styles.avatarImage} />
         ) : (
           <Ionicons name="person" size={24} color={Colors.neutral[400]} />
         )}

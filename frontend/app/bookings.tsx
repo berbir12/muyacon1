@@ -199,6 +199,9 @@ export default function Bookings() {
           horizontal 
           showsHorizontalScrollIndicator={false} 
           contentContainerStyle={styles.filterScroll}
+          bounces={false}
+          alwaysBounceVertical={false}
+          overScrollMode="never"
         >
           {statuses.map((status) => (
     <TouchableOpacity
@@ -228,7 +231,9 @@ export default function Bookings() {
         showsVerticalScrollIndicator={true}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.scrollContent}
-        bounces={true}
+        bounces={false}
+        alwaysBounceVertical={false}
+        overScrollMode="never"
         scrollEventThrottle={16}
       >
         {loading ? (
@@ -537,6 +542,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   scrollContent: {
+    paddingTop: 8, // Small padding to prevent dragging from top safe area
     paddingBottom: 20,
   },
   loadingContainer: {

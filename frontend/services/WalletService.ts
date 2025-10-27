@@ -405,16 +405,6 @@ export class WalletService {
         processingTime: 'Instant',
         fee: 5
       },
-      {
-        id: 'cash_pickup',
-        name: 'Cash Pickup',
-        description: 'Pick up cash from our office',
-        icon: 'location',
-        minAmount: 50,
-        maxAmount: 20000,
-        processingTime: 'Same day',
-        fee: 0
-      }
     ]
   }
 

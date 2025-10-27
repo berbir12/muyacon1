@@ -181,6 +181,9 @@ export default function ChatComponent({ chatId, onClose }: ChatComponentProps) {
           style={styles.messagesList}
           contentContainerStyle={styles.messagesContent}
           onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+          bounces={false}
+          alwaysBounceVertical={false}
+          overScrollMode="never"
         />
 
         {/* Message Input */}

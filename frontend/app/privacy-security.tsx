@@ -104,7 +104,7 @@ export default function PrivacySecurity() {
           onPress: () => {
             Alert.alert(
               'Account Deletion',
-              'To delete your account, please contact our support team at support@muyacon.com',
+              'To delete your account, please contact our support team at support@mescott.com',
               [{ text: 'OK' }]
             )
           }

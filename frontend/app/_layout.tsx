@@ -1,7 +1,8 @@
-import React, { useEffect } from 'react'
-import { View, Text } from 'react-native'
+import React, { useEffect, useState } from 'react'
+import { View, Text, Image } from 'react-native'
 import { Tabs, usePathname } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { AuthProvider, useAuth } from '../contexts/SimpleAuthContext'
 import { LanguageProvider } from '../contexts/LanguageContext'
 import { NotificationProvider, useNotifications } from '../contexts/NotificationContext'
@@ -58,9 +59,13 @@ function TabNavigator() {
           backgroundColor: '#fff',
           borderTopWidth: 1,
           borderTopColor: Colors.neutral[200],
-          paddingBottom: 4,
+          paddingBottom: 0, // Remove padding, let SafeAreaView handle it
           paddingTop: 4,
           height: 70,
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
         } : { display: 'none' }, // Hide tabs during authentication or on sub-pages
         headerShown: false,
       }}
@@ -290,53 +295,23 @@ function TabNavigator() {
 }
 
 function AppContent() {
-  const { loading } = useAuth();
-
-  useEffect(() => {
-    if (!loading) {
-      // Hide the splash screen when auth loading is complete
-      SplashScreen.hideAsync();
-    }
-  }, [loading]);
-
-  if (loading) {
-    // Show a simple loading indicator while splash screen is visible
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#ffffff' }}>
-        <Text style={{ fontSize: 18, color: '#333', marginBottom: 10 }}>Loading App...</Text>
-        <Text style={{ fontSize: 14, color: '#666', textAlign: 'center', paddingHorizontal: 20 }}>
-          Please wait while we initialize the application
-        </Text>
-      </View>
-    );
-  }
-
-  return <TabNavigator />;
+  return (
+    <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+      <TabNavigator />
+    </SafeAreaView>
+  );
 }
 
 export default function RootLayout() {
-  useEffect(() => {
-    async function prepare() {
-      try {
-        // Keep the splash screen visible while we fetch resources
-        await SplashScreen.preventAutoHideAsync();
-      } catch (e) {
-        console.warn(e);
-      }
-    }
-
-    prepare();
-  }, []);
-
-         return (
-           <LanguageProvider>
-             <AuthProvider>
-               <NotificationProvider>
-        <ToastProvider>
-          <AppContent />
-        </ToastProvider>
-               </NotificationProvider>
-             </AuthProvider>
-           </LanguageProvider>
-         )
+  return (
+    <LanguageProvider>
+      <AuthProvider>
+        <NotificationProvider>
+          <ToastProvider>
+            <AppContent />
+          </ToastProvider>
+        </NotificationProvider>
+      </AuthProvider>
+    </LanguageProvider>
+  )
 }

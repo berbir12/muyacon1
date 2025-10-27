@@ -104,6 +104,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         updated_at: profile.updated_at,
         name: profile.full_name,
         currentMode: profile.current_mode,
+        avatar_url: profile.avatar_url, // Add avatar_url to main user object
         profile,
       });
     } catch (error) {

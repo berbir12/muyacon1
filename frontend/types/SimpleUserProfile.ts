@@ -11,6 +11,7 @@ export interface SimpleUserProfile {
   tasker_application_status?: 'pending' | 'approved' | 'rejected';
   created_at: string;
   updated_at: string;
+  avatar_url?: string; // Add avatar_url to main interface
   
   // Computed properties for compatibility
   name: string; // alias for full_name
